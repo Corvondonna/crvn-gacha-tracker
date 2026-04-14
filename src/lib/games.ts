@@ -74,7 +74,7 @@ export const GAMES: Record<GameId, GameConfig> = {
     patchCycle: {
       durationDays: 42,
       patchDay: "Wednesday",
-      phase2OffsetDays: 20,
+      phase2OffsetDays: 21,
       livestreamOffsetDays: 30,
     },
   },

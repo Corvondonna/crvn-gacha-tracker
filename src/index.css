@@ -1,32 +1,42 @@
 @import "tailwindcss";
 
 :root {
-  --background: 0 0% 7%;
-  --foreground: 0 0% 95%;
-  --card: 0 0% 10%;
-  --card-foreground: 0 0% 95%;
-  --popover: 0 0% 10%;
-  --popover-foreground: 0 0% 95%;
-  --primary: 0 0% 98%;
-  --primary-foreground: 0 0% 9%;
-  --secondary: 0 0% 15%;
-  --secondary-foreground: 0 0% 98%;
-  --muted: 0 0% 15%;
-  --muted-foreground: 0 0% 64%;
-  --accent: 0 0% 15%;
-  --accent-foreground: 0 0% 98%;
+  --background: 0 0% 5%;
+  --foreground: 0 0% 92%;
+  --card: 0 0% 8%;
+  --card-foreground: 0 0% 92%;
+  --popover: 0 0% 8%;
+  --popover-foreground: 0 0% 92%;
+  --primary: 0 0% 96%;
+  --primary-foreground: 0 0% 6%;
+  --secondary: 0 0% 13%;
+  --secondary-foreground: 0 0% 96%;
+  --muted: 0 0% 14%;
+  --muted-foreground: 0 0% 55%;
+  --accent: 0 0% 16%;
+  --accent-foreground: 0 0% 96%;
   --destructive: 0 62% 50%;
   --destructive-foreground: 0 0% 98%;
-  --border: 0 0% 18%;
-  --input: 0 0% 18%;
-  --ring: 0 0% 83%;
+  --border: 0 0% 14%;
+  --input: 0 0% 14%;
+  --ring: 0 0% 60%;
   --radius: 0.5rem;
 
   /* Game accent colors */
-  --genshin: 36 80% 55%;
-  --hsr: 250 60% 60%;
-  --zzz: 160 50% 45%;
-  --wuwa: 275 55% 55%;
+  --genshin: 36 85% 58%;
+  --hsr: 245 70% 65%;
+  --zzz: 160 60% 48%;
+  --wuwa: 270 65% 62%;
+
+  /* Glass effect tokens */
+  --glass-bg: 0 0% 10%;
+  --glass-opacity: 0.6;
+  --glass-blur: 16px;
+  --glass-border: 0 0% 20%;
+
+  /* Glow tokens */
+  --glow-intensity: 0.4;
+  --glow-spread: 20px;
 }
 
 * {
@@ -38,11 +48,107 @@
 
 body {
   background-color: hsl(var(--background));
+  background-image:
+    radial-gradient(ellipse at 20% 50%, hsla(var(--hsr) / 0.04) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, hsla(var(--genshin) / 0.03) 0%, transparent 50%),
+    radial-gradient(ellipse at 60% 80%, hsla(var(--wuwa) / 0.03) 0%, transparent 50%);
   color: hsl(var(--foreground));
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: "Inter Tight", system-ui, -apple-system, sans-serif;
 }
 
 #root {
   min-height: 100vh;
   display: flex;
+}
+
+/* Utility classes for glass effect */
+.glass {
+  background: hsla(var(--glass-bg) / var(--glass-opacity));
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid hsla(var(--glass-border) / 0.4);
+}
+
+.glass-subtle {
+  background: hsla(var(--glass-bg) / 0.35);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid hsla(var(--glass-border) / 0.25);
+}
+
+/* Glow utilities per game */
+.glow-genshin {
+  box-shadow: 0 0 var(--glow-spread) hsla(var(--genshin) / var(--glow-intensity));
+}
+.glow-hsr {
+  box-shadow: 0 0 var(--glow-spread) hsla(var(--hsr) / var(--glow-intensity));
+}
+.glow-zzz {
+  box-shadow: 0 0 var(--glow-spread) hsla(var(--zzz) / var(--glow-intensity));
+}
+.glow-wuwa {
+  box-shadow: 0 0 var(--glow-spread) hsla(var(--wuwa) / var(--glow-intensity));
+}
+
+/* Neon text glow per game */
+.neon-genshin {
+  color: hsl(var(--genshin));
+  text-shadow: 0 0 8px hsla(var(--genshin) / 0.5);
+}
+.neon-hsr {
+  color: hsl(var(--hsr));
+  text-shadow: 0 0 8px hsla(var(--hsr) / 0.5);
+}
+.neon-zzz {
+  color: hsl(var(--zzz));
+  text-shadow: 0 0 8px hsla(var(--zzz) / 0.5);
+}
+.neon-wuwa {
+  color: hsl(var(--wuwa));
+  text-shadow: 0 0 8px hsla(var(--wuwa) / 0.5);
+}
+
+/* Glowing border on hover */
+.glow-border-genshin:hover {
+  border-color: hsla(var(--genshin) / 0.5);
+  box-shadow: 0 0 12px hsla(var(--genshin) / 0.2), inset 0 0 12px hsla(var(--genshin) / 0.05);
+}
+.glow-border-hsr:hover {
+  border-color: hsla(var(--hsr) / 0.5);
+  box-shadow: 0 0 12px hsla(var(--hsr) / 0.2), inset 0 0 12px hsla(var(--hsr) / 0.05);
+}
+.glow-border-zzz:hover {
+  border-color: hsla(var(--zzz) / 0.5);
+  box-shadow: 0 0 12px hsla(var(--zzz) / 0.2), inset 0 0 12px hsla(var(--zzz) / 0.05);
+}
+.glow-border-wuwa:hover {
+  border-color: hsla(var(--wuwa) / 0.5);
+  box-shadow: 0 0 12px hsla(var(--wuwa) / 0.2), inset 0 0 12px hsla(var(--wuwa) / 0.05);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsla(0, 0%, 100%, 0.03);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsla(0, 0%, 100%, 0.12);
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsla(0, 0%, 100%, 0.22);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
