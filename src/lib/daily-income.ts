@@ -100,16 +100,22 @@ export function projectIncomeUntil(
   return income
 }
 
+export interface IncomeAccumulation {
+  gameId: GameId
+  days: number
+  amount: number
+}
+
 /**
  * Runs on app load. For each game with a resource snapshot,
  * calculates elapsed days since last update and accumulates
  * daily income into the currency total.
  *
- * Returns the number of games that were updated.
+ * Returns per-game accumulation details.
  */
-export async function accumulateDailyIncome(): Promise<number> {
+export async function accumulateDailyIncome(): Promise<IncomeAccumulation[]> {
   const now = new Date()
-  let updated = 0
+  const results: IncomeAccumulation[] = []
 
   for (const gameId of GAME_IDS) {
     // Get the latest snapshot for this game
@@ -166,8 +172,8 @@ export async function accumulateDailyIncome(): Promise<number> {
       monthlyPassActive: passStillActive,
     })
 
-    updated++
+    results.push({ gameId, days, amount: totalIncome })
   }
 
-  return updated
+  return results
 }

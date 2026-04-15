@@ -129,7 +129,7 @@ Each game shares a common structure with game-specific currency names:
 |---|---|---|---|---|
 | Premium currency | Primogems | Stellar Jade | Polychrome | Astrite |
 | Pull item | Intertwined Fate | Star Rail Special Pass | Encrypted Master Tape | Radiant Tide |
-| Weapon pull item | Acquaint Fate | Star Rail Pass | Bangboo Ticket | Forging Tide |
+| Paid currency | Genesis Crystals | Oneiric Shard | Monochromes | Lunites |
 | Pity (5-star) | 90 | 90 | 90 | 80 |
 | Soft pity starts | ~74 | ~74 | ~74 | ~66 |
 | 50/50 system | Yes | Yes | Yes | Yes |

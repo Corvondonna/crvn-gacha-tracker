@@ -35,7 +35,7 @@ export interface ResourceSnapshot {
   updatedAt: string
   currency: number
   pullItems: number
-  weaponPullItems: number
+  paidCurrency: number
   currentPity: number
   isGuaranteed: boolean
   weaponCurrentPity: number
@@ -108,6 +108,22 @@ db.version(4).stores({
   })
   tx.table("timeline").toCollection().modify(entry => {
     if (entry.pullingWeapon === undefined) entry.pullingWeapon = false
+  })
+})
+
+db.version(5).stores({
+  pulls: "++id, gameId, bannerType, timestamp, rarity",
+  timeline: "++id, gameId, version, startDate",
+  resources: "++id, gameId, updatedAt",
+  characters: "++id, gameId, displayName, internalId",
+}).upgrade(tx => {
+  return tx.table("resources").toCollection().modify(entry => {
+    // Rename weaponPullItems -> paidCurrency (was tracking wrong item type)
+    if (entry.weaponPullItems !== undefined) {
+      entry.paidCurrency = 0 // reset since old value tracked a different item
+      delete entry.weaponPullItems
+    }
+    if (entry.paidCurrency === undefined) entry.paidCurrency = 0
   })
 })
 

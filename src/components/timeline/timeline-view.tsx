@@ -823,9 +823,10 @@ export function TimelineView() {
       // Project daily income from now until the banner date
       const projectedCurrency = res ? projectIncomeUntil(node.gameId, res, node.date) : 0
 
-      // Character banner pulls (current + projected income)
+      // Character banner pulls (current + paid currency + projected income)
       const pullItems = res?.pullItems ?? 0
-      const currency = (res?.currency ?? 0) + projectedCurrency
+      const paidCurrency = res?.paidCurrency ?? 0
+      const currency = (res?.currency ?? 0) + paidCurrency + projectedCurrency
       const totalCharPulls = pullItems + Math.floor(currency / config.currencyPerPull)
       const currentPity = res?.currentPity ?? 0
       const isGuaranteed = res?.isGuaranteed ?? false
@@ -834,12 +835,11 @@ export function TimelineView() {
 
       let result: ProbabilityResult
       if (entry.pullingWeapon) {
-        const weaponPullItems = res?.weaponPullItems ?? 0
         const weaponPity = res?.weaponCurrentPity ?? 0
         const weaponGuaranteed = res?.weaponIsGuaranteed ?? false
         const weaponFP = res?.weaponFatePoints ?? 0
-        // Currency is shared between banners. Weapon banner also gets currency-based pulls.
-        const totalWeaponPulls = weaponPullItems + Math.floor(currency / config.currencyPerPull)
+        // Currency pool is shared between banners
+        const totalWeaponPulls = Math.floor(currency / config.currencyPerPull)
         result = computeCombinedProbability(
           node.gameId,
           currentPity, totalCharPulls, isGuaranteed,
