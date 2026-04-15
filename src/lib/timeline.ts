@@ -49,6 +49,7 @@ export function calculatePatchDates(
  */
 const VERSION_SKIPS: Partial<Record<GameId, Set<string>>> = {
   genshin: new Set(["6.9"]),
+  hsr: new Set(["3.9"]),
   zzz: new Set(["2.9"]),
 }
 
@@ -133,6 +134,15 @@ export function generatePatchSeries(
     patches.push(calculatePatchDates(gameId, currentVersion, new Date(currentDate)))
     currentDate.setDate(currentDate.getDate() - cycle.durationDays)
     currentVersion = decrementVersion(currentVersion, gameId)
+  }
+
+  // Include one extra patch before rangeStart so its Phase 2 / livestream
+  // nodes that fall within range still appear
+  if (currentDate.getTime() < rangeStart.getTime()) {
+    const extraPatch = calculatePatchDates(gameId, currentVersion, new Date(currentDate))
+    if (extraPatch.patchEnd.getTime() >= rangeStart.getTime()) {
+      patches.push(extraPatch)
+    }
   }
 
   // Sort chronologically

@@ -24,6 +24,9 @@ export interface TimelineEntry {
   characterPortrait: Blob | null
   valueTier: "limited" | "rerun" | "standard" | "four-star"
   isSpeculation: boolean
+  isPriority: boolean
+  pullStatus: "none" | "secured" | "failed"
+  pullingWeapon: boolean
 }
 
 export interface ResourceSnapshot {
@@ -35,8 +38,12 @@ export interface ResourceSnapshot {
   weaponPullItems: number
   currentPity: number
   isGuaranteed: boolean
+  weaponCurrentPity: number
+  weaponIsGuaranteed: boolean
+  weaponFatePoints: number
   monthlyPassActive: boolean
   monthlyPassExpiry: string | null
+  dailyCommissionsActive: boolean
 }
 
 export interface CharacterRegistration {
@@ -63,6 +70,45 @@ db.version(1).stores({
   timeline: "++id, gameId, version, startDate",
   resources: "++id, gameId, updatedAt",
   characters: "++id, gameId, displayName, internalId",
+})
+
+db.version(2).stores({
+  pulls: "++id, gameId, bannerType, timestamp, rarity",
+  timeline: "++id, gameId, version, startDate",
+  resources: "++id, gameId, updatedAt",
+  characters: "++id, gameId, displayName, internalId",
+}).upgrade(tx => {
+  return tx.table("timeline").toCollection().modify(entry => {
+    if (entry.isPriority === undefined) entry.isPriority = false
+    if (entry.pullStatus === undefined) entry.pullStatus = "none"
+  })
+})
+
+db.version(3).stores({
+  pulls: "++id, gameId, bannerType, timestamp, rarity",
+  timeline: "++id, gameId, version, startDate",
+  resources: "++id, gameId, updatedAt",
+  characters: "++id, gameId, displayName, internalId",
+}).upgrade(tx => {
+  return tx.table("resources").toCollection().modify(entry => {
+    if (entry.dailyCommissionsActive === undefined) entry.dailyCommissionsActive = false
+  })
+})
+
+db.version(4).stores({
+  pulls: "++id, gameId, bannerType, timestamp, rarity",
+  timeline: "++id, gameId, version, startDate",
+  resources: "++id, gameId, updatedAt",
+  characters: "++id, gameId, displayName, internalId",
+}).upgrade(tx => {
+  tx.table("resources").toCollection().modify(entry => {
+    if (entry.weaponCurrentPity === undefined) entry.weaponCurrentPity = 0
+    if (entry.weaponIsGuaranteed === undefined) entry.weaponIsGuaranteed = false
+    if (entry.weaponFatePoints === undefined) entry.weaponFatePoints = 0
+  })
+  tx.table("timeline").toCollection().modify(entry => {
+    if (entry.pullingWeapon === undefined) entry.pullingWeapon = false
+  })
 })
 
 export { db }

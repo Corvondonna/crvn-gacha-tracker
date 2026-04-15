@@ -1,11 +1,20 @@
+import { useEffect, useRef } from "react"
 import { Routes, Route, Navigate } from "react-router-dom"
 import { AppLayout } from "@/components/layout/app-layout"
 import { Dashboard } from "@/pages/Dashboard"
 import { Timeline } from "@/pages/Timeline"
 import { Pulls } from "@/pages/Pulls"
 import { Resources } from "@/pages/Resources"
+import { accumulateDailyIncome } from "@/lib/daily-income"
 
 function App() {
+  const accumulated = useRef(false)
+  useEffect(() => {
+    if (accumulated.current) return
+    accumulated.current = true
+    accumulateDailyIncome()
+  }, [])
+
   return (
     <Routes>
       <Route element={<AppLayout />}>

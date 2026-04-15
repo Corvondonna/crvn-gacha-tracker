@@ -49,9 +49,11 @@
 body {
   background-color: hsl(var(--background));
   background-image:
+    radial-gradient(circle at 1px 1px, hsla(0, 0%, 100%, 0.04) 1px, transparent 0),
     radial-gradient(ellipse at 20% 50%, hsla(var(--hsr) / 0.04) 0%, transparent 60%),
     radial-gradient(ellipse at 80% 20%, hsla(var(--genshin) / 0.03) 0%, transparent 50%),
     radial-gradient(ellipse at 60% 80%, hsla(var(--wuwa) / 0.03) 0%, transparent 50%);
+  background-size: 24px 24px, 100% 100%, 100% 100%, 100% 100%;
   color: hsl(var(--foreground));
   font-family: "Inter Tight", system-ui, -apple-system, sans-serif;
 }
@@ -124,6 +126,16 @@ body {
 .glow-border-wuwa:hover {
   border-color: hsla(var(--wuwa) / 0.5);
   box-shadow: 0 0 12px hsla(var(--wuwa) / 0.2), inset 0 0 12px hsla(var(--wuwa) / 0.05);
+}
+
+/* Priority node animated ring */
+@keyframes priority-spin {
+  from { stroke-dashoffset: 0; }
+  to { stroke-dashoffset: -28; }
+}
+
+.priority-ring {
+  animation: priority-spin 1.5s linear infinite;
 }
 
 /* Custom scrollbar */
