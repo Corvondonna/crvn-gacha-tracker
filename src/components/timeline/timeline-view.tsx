@@ -393,20 +393,29 @@ function TimelineNodeDot({
         )}
 
         {/* Label inside node (hidden when portrait fills the circle) */}
-        {!hasPortrait && isLivestream && (
-          <g transform={`translate(${x}, ${y})`}>
-            {/* Broadcast / livestream icon */}
-            <circle cx={0} cy={0} r={baseHalf * 0.2} fill={accent} />
-            <path d={`M${-baseHalf*0.35},${-baseHalf*0.35} A${baseHalf*0.5},${baseHalf*0.5} 0 0,1 ${-baseHalf*0.35},${baseHalf*0.35}`}
-              fill="none" stroke={accent} strokeWidth={1.3} strokeLinecap="round" />
-            <path d={`M${baseHalf*0.35},${-baseHalf*0.35} A${baseHalf*0.5},${baseHalf*0.5} 0 0,0 ${baseHalf*0.35},${baseHalf*0.35}`}
-              fill="none" stroke={accent} strokeWidth={1.3} strokeLinecap="round" />
-            <path d={`M${-baseHalf*0.58},${-baseHalf*0.55} A${baseHalf*0.8},${baseHalf*0.8} 0 0,1 ${-baseHalf*0.58},${baseHalf*0.55}`}
-              fill="none" stroke={accent} strokeWidth={1.3} strokeLinecap="round" />
-            <path d={`M${baseHalf*0.58},${-baseHalf*0.55} A${baseHalf*0.8},${baseHalf*0.8} 0 0,0 ${baseHalf*0.58},${baseHalf*0.55}`}
-              fill="none" stroke={accent} strokeWidth={1.3} strokeLinecap="round" />
-          </g>
-        )}
+        {!hasPortrait && isLivestream && (() => {
+          const r1 = baseHalf * 0.35
+          const r2 = baseHalf * 0.55
+          const dot = baseHalf * 0.15
+          const sw = 1.5
+          return (
+            <g transform={`translate(${x}, ${y})`}>
+              <circle cx={0} cy={0} r={dot} fill={accent} />
+              {/* Inner left arc */}
+              <path d={`M${-r1 * Math.sin(Math.PI/3)},${-r1 * Math.cos(Math.PI/3)} A${r1},${r1} 0 0,0 ${-r1 * Math.sin(Math.PI/3)},${r1 * Math.cos(Math.PI/3)}`}
+                fill="none" stroke={accent} strokeWidth={sw} strokeLinecap="round" />
+              {/* Inner right arc */}
+              <path d={`M${r1 * Math.sin(Math.PI/3)},${-r1 * Math.cos(Math.PI/3)} A${r1},${r1} 0 0,1 ${r1 * Math.sin(Math.PI/3)},${r1 * Math.cos(Math.PI/3)}`}
+                fill="none" stroke={accent} strokeWidth={sw} strokeLinecap="round" />
+              {/* Outer left arc */}
+              <path d={`M${-r2 * Math.sin(Math.PI/3)},${-r2 * Math.cos(Math.PI/3)} A${r2},${r2} 0 0,0 ${-r2 * Math.sin(Math.PI/3)},${r2 * Math.cos(Math.PI/3)}`}
+                fill="none" stroke={accent} strokeWidth={sw} strokeLinecap="round" />
+              {/* Outer right arc */}
+              <path d={`M${r2 * Math.sin(Math.PI/3)},${-r2 * Math.cos(Math.PI/3)} A${r2},${r2} 0 0,1 ${r2 * Math.sin(Math.PI/3)},${r2 * Math.cos(Math.PI/3)}`}
+                fill="none" stroke={accent} strokeWidth={sw} strokeLinecap="round" />
+            </g>
+          )
+        })()}
         {!hasPortrait && !isLivestream && (
           <text
             x={x}
