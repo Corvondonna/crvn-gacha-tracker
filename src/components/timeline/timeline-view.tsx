@@ -393,13 +393,27 @@ function TimelineNodeDot({
         )}
 
         {/* Label inside node (hidden when portrait fills the circle) */}
-        {!hasPortrait && (
+        {!hasPortrait && isLivestream && (
+          <g transform={`translate(${x}, ${y})`}>
+            {/* Broadcast / livestream icon */}
+            <circle cx={0} cy={0} r={baseHalf * 0.2} fill={accent} />
+            <path d={`M${-baseHalf*0.35},${-baseHalf*0.35} A${baseHalf*0.5},${baseHalf*0.5} 0 0,1 ${-baseHalf*0.35},${baseHalf*0.35}`}
+              fill="none" stroke={accent} strokeWidth={1.3} strokeLinecap="round" />
+            <path d={`M${baseHalf*0.35},${-baseHalf*0.35} A${baseHalf*0.5},${baseHalf*0.5} 0 0,0 ${baseHalf*0.35},${baseHalf*0.35}`}
+              fill="none" stroke={accent} strokeWidth={1.3} strokeLinecap="round" />
+            <path d={`M${-baseHalf*0.58},${-baseHalf*0.55} A${baseHalf*0.8},${baseHalf*0.8} 0 0,1 ${-baseHalf*0.58},${baseHalf*0.55}`}
+              fill="none" stroke={accent} strokeWidth={1.3} strokeLinecap="round" />
+            <path d={`M${baseHalf*0.58},${-baseHalf*0.55} A${baseHalf*0.8},${baseHalf*0.8} 0 0,0 ${baseHalf*0.58},${baseHalf*0.55}`}
+              fill="none" stroke={accent} strokeWidth={1.3} strokeLinecap="round" />
+          </g>
+        )}
+        {!hasPortrait && !isLivestream && (
           <text
             x={x}
             y={y + 1}
             textAnchor="middle"
             dominantBaseline="middle"
-            fontSize={node.phase === 1 ? 10 : isLivestream ? 7 : 8}
+            fontSize={node.phase === 1 ? 10 : 8}
             fontWeight="bold"
             fill={accent}
           >
