@@ -1,9 +1,16 @@
 import type { GameId } from "@/lib/games"
 
+export type CombatIcon =
+  | "gate" | "theatre" | "flower"       // Genshin
+  | "crystal" | "dove" | "hourglass"    // HSR
+  | "shield" | "cobra"                  // ZZZ
+  | "tower" | "ship"                    // WuWa
+
 export interface CombatMode {
   id: string
   gameId: GameId
   name: string
+  icon: CombatIcon
   /** Currency reward per reset cycle */
   reward: number
   /** Reset schedule type */
@@ -27,6 +34,7 @@ export const COMBAT_MODES: CombatMode[] = [
     id: "gi-imaginarium",
     gameId: "genshin",
     name: "Imaginarium Theatre",
+    icon: "theatre",
     reward: 1000,
     schedule: { type: "monthly", dayOfMonth: 1 },
   },
@@ -34,6 +42,7 @@ export const COMBAT_MODES: CombatMode[] = [
     id: "gi-abyss",
     gameId: "genshin",
     name: "Spiral Abyss",
+    icon: "gate",
     reward: 800,
     schedule: { type: "monthly", dayOfMonth: 16 },
   },
@@ -41,6 +50,7 @@ export const COMBAT_MODES: CombatMode[] = [
     id: "gi-stygian",
     gameId: "genshin",
     name: "Stygian Onslaught",
+    icon: "flower",
     reward: 450,
     schedule: { type: "patchRelative", offsetDays: 7 },
   },
@@ -51,6 +61,7 @@ export const COMBAT_MODES: CombatMode[] = [
     id: "hsr-as",
     gameId: "hsr",
     name: "Apocalyptic Shadow",
+    icon: "hourglass",
     reward: 800,
     schedule: { type: "interval", intervalDays: 42, anchor: new Date(2026, 2, 16) }, // Mar 16
   },
@@ -58,6 +69,7 @@ export const COMBAT_MODES: CombatMode[] = [
     id: "hsr-pf",
     gameId: "hsr",
     name: "Pure Fiction",
+    icon: "dove",
     reward: 800,
     schedule: { type: "interval", intervalDays: 42, anchor: new Date(2026, 2, 30) }, // Mar 30
   },
@@ -65,6 +77,7 @@ export const COMBAT_MODES: CombatMode[] = [
     id: "hsr-moc",
     gameId: "hsr",
     name: "Memory of Chaos",
+    icon: "crystal",
     reward: 800,
     schedule: { type: "interval", intervalDays: 42, anchor: new Date(2026, 3, 13) }, // Apr 13
   },
@@ -75,6 +88,7 @@ export const COMBAT_MODES: CombatMode[] = [
     id: "zzz-shiyu",
     gameId: "zzz",
     name: "Shiyu Defense",
+    icon: "shield",
     reward: 780,
     schedule: { type: "interval", intervalDays: 14, anchor: new Date(2026, 3, 3) }, // Apr 3
   },
@@ -82,6 +96,7 @@ export const COMBAT_MODES: CombatMode[] = [
     id: "zzz-deadly",
     gameId: "zzz",
     name: "Deadly Assault",
+    icon: "cobra",
     reward: 300,
     schedule: { type: "interval", intervalDays: 14, anchor: new Date(2026, 3, 10) }, // Apr 10
   },
@@ -92,6 +107,7 @@ export const COMBAT_MODES: CombatMode[] = [
     id: "wuwa-toa",
     gameId: "wuwa",
     name: "Tower of Adversity",
+    icon: "tower",
     reward: 800,
     schedule: { type: "interval", intervalDays: 28, anchor: new Date(2026, 2, 2) }, // Mar 2
   },
@@ -99,6 +115,7 @@ export const COMBAT_MODES: CombatMode[] = [
     id: "wuwa-ww",
     gameId: "wuwa",
     name: "Whimpering Wastes",
+    icon: "ship",
     reward: 800,
     schedule: { type: "interval", intervalDays: 28, anchor: new Date(2026, 2, 16) }, // Mar 16
   },

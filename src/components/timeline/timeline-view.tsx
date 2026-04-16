@@ -13,7 +13,7 @@ import { db, type TimelineEntry, type ResourceSnapshot } from "@/lib/db"
 import { seedTimeline } from "@/lib/seed-timeline"
 import { computeCharacterProbability, computeCombinedProbability, type ProbabilityResult } from "@/lib/probability"
 import { projectIncomeUntil } from "@/lib/daily-income"
-import { COMBAT_MODES, getCombatModeResets, type CombatMode } from "@/data/combat-modes"
+import { COMBAT_MODES, getCombatModeResets, type CombatMode, type CombatIcon } from "@/data/combat-modes"
 import { NodeEditor } from "./node-editor"
 
 const BASE_MONTH_WIDTH = 240
@@ -111,6 +111,107 @@ function formatFullDate(date: Date): string {
     day: "numeric",
     year: "numeric",
   })
+}
+
+/** Renders a unique SVG icon for each combat mode type */
+function CombatModeIcon({ icon, size: s, color, colorDim }: { icon: CombatIcon; size: number; color: string; colorDim: string }) {
+  const sw = 1.5
+  switch (icon) {
+    case "gate": // Spiral Abyss - arched gate
+      return (
+        <g>
+          <path d={`M${-s*0.6},${s*0.5} V${-s*0.2} A${s*0.6},${s*0.7} 0 0,1 ${s*0.6},${-s*0.2} V${s*0.5}`}
+            fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" />
+          <line x1={0} y1={-s*0.5} x2={0} y2={-s*0.9} stroke={color} strokeWidth={sw} strokeLinecap="round" />
+        </g>
+      )
+    case "theatre": // Imaginarium Theatre - comedy/tragedy masks simplified as curtains
+      return (
+        <g>
+          <path d={`M${-s*0.7},${-s*0.6} L0,${-s*0.9} L${s*0.7},${-s*0.6}`}
+            fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" />
+          <path d={`M${-s*0.6},${-s*0.5} Q${-s*0.3},${s*0.4} 0,${s*0.5}`}
+            fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" />
+          <path d={`M${s*0.6},${-s*0.5} Q${s*0.3},${s*0.4} 0,${s*0.5}`}
+            fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" />
+        </g>
+      )
+    case "flower": // Stygian Onslaught - simple flower
+      return (
+        <g>
+          {[0, 72, 144, 216, 288].map((angle) => (
+            <ellipse key={angle} cx={0} cy={-s*0.45} rx={s*0.22} ry={s*0.4}
+              fill="none" stroke={color} strokeWidth={sw-0.3}
+              transform={`rotate(${angle})`} />
+          ))}
+          <circle cx={0} cy={0} r={s*0.18} fill={color} />
+        </g>
+      )
+    case "crystal": // Memory of Chaos - diamond/crystal
+      return (
+        <path d={`M0,${-s*0.8} L${s*0.5},0 L0,${s*0.8} L${-s*0.5},0 Z`}
+          fill="none" stroke={color} strokeWidth={sw} strokeLinejoin="round" />
+      )
+    case "dove": // Pure Fiction - paper dove / origami bird
+      return (
+        <g>
+          <path d={`M${-s*0.7},${s*0.1} L0,${-s*0.6} L${s*0.7},${s*0.1}`}
+            fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" />
+          <path d={`M0,${-s*0.6} L0,${s*0.5} L${s*0.4},${s*0.2}`}
+            fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" />
+          <path d={`M0,${s*0.5} L${-s*0.4},${s*0.2}`}
+            fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" />
+        </g>
+      )
+    case "hourglass": // Apocalyptic Shadow
+      return (
+        <g>
+          <line x1={-s*0.45} y1={-s*0.7} x2={s*0.45} y2={-s*0.7} stroke={color} strokeWidth={sw} strokeLinecap="round" />
+          <line x1={-s*0.45} y1={s*0.7} x2={s*0.45} y2={s*0.7} stroke={color} strokeWidth={sw} strokeLinecap="round" />
+          <path d={`M${-s*0.35},${-s*0.7} L0,0 L${-s*0.35},${s*0.7}`}
+            fill="none" stroke={color} strokeWidth={sw-0.2} strokeLinejoin="round" />
+          <path d={`M${s*0.35},${-s*0.7} L0,0 L${s*0.35},${s*0.7}`}
+            fill="none" stroke={color} strokeWidth={sw-0.2} strokeLinejoin="round" />
+        </g>
+      )
+    case "shield": // Shiyu Defense
+      return (
+        <path d={`M0,${-s*0.8} L${s*0.6},${-s*0.4} L${s*0.6},${s*0.2} Q${s*0.5},${s*0.7} 0,${s*0.8} Q${-s*0.5},${s*0.7} ${-s*0.6},${s*0.2} L${-s*0.6},${-s*0.4} Z`}
+          fill="none" stroke={color} strokeWidth={sw} strokeLinejoin="round" />
+      )
+    case "cobra": // Deadly Assault - snake head
+      return (
+        <g>
+          <path d={`M0,${s*0.7} Q${-s*0.3},${s*0.2} ${-s*0.1},${-s*0.2} Q0,${-s*0.7} ${s*0.3},${-s*0.8}`}
+            fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" />
+          <path d={`M0,${s*0.7} Q${s*0.3},${s*0.2} ${s*0.1},${-s*0.2} Q0,${-s*0.7} ${s*0.3},${-s*0.8}`}
+            fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" />
+          <circle cx={s*0.15} cy={-s*0.5} r={s*0.08} fill={color} />
+        </g>
+      )
+    case "tower": // Tower of Adversity
+      return (
+        <g>
+          <rect x={-s*0.25} y={-s*0.3} width={s*0.5} height={s*0.9}
+            fill="none" stroke={color} strokeWidth={sw} rx={1} />
+          <line x1={-s*0.45} y1={-s*0.3} x2={s*0.45} y2={-s*0.3} stroke={color} strokeWidth={sw} strokeLinecap="round" />
+          <path d={`M${-s*0.35},${-s*0.3} L0,${-s*0.8} L${s*0.35},${-s*0.3}`}
+            fill="none" stroke={color} strokeWidth={sw} strokeLinejoin="round" />
+        </g>
+      )
+    case "ship": // Whimpering Wastes - simple sailboat
+      return (
+        <g>
+          <path d={`M${-s*0.6},${s*0.4} Q0,${s*0.1} ${s*0.6},${s*0.4}`}
+            fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" />
+          <line x1={0} y1={s*0.3} x2={0} y2={-s*0.5} stroke={colorDim} strokeWidth={sw} strokeLinecap="round" />
+          <path d={`M0,${-s*0.5} L${s*0.4},${s*0.1} L0,${s*0.1}`}
+            fill="none" stroke={color} strokeWidth={sw} strokeLinejoin="round" />
+        </g>
+      )
+    default:
+      return <circle cx={0} cy={0} r={s*0.4} fill="none" stroke={color} strokeWidth={sw} />
+  }
 }
 
 function TimelineNodeDot({
@@ -412,7 +513,7 @@ function TimelineNodeDot({
                 x={x}
                 y={probY}
                 textAnchor="middle"
-                fontSize={8}
+                fontSize={11}
                 fontWeight="bold"
                 fill={probColor}
                 opacity={0.9}
@@ -421,9 +522,9 @@ function TimelineNodeDot({
               </text>
               <text
                 x={x}
-                y={probY + 10}
+                y={probY + 13}
                 textAnchor="middle"
-                fontSize={7}
+                fontSize={9}
                 fill="hsl(var(--muted-foreground))"
                 opacity={0.7}
               >
@@ -1053,44 +1154,22 @@ export function TimelineView() {
                       const cx = dateToX(cr.date, rangeStart, monthWidth)
                       const cy = y + rowHeight * 0.32
                       const isPast = cr.date <= now
-                      const swordSize = 7
+                      const s = 7
+                      const color = isPast ? "hsl(0, 40%, 45%)" : "hsl(0, 65%, 55%)"
+                      const colorDim = isPast ? "hsl(0, 30%, 40%)" : "hsl(0, 50%, 45%)"
                       return (
                         <g
                           key={`combat-${cr.mode.id}-${ci}`}
                           opacity={isPast ? 0.35 : 0.85}
                           style={{ cursor: "default" }}
                         >
-                          {/* Sword icon */}
                           <g transform={`translate(${cx}, ${cy})`}>
-                            {/* Blade */}
-                            <line
-                              x1={0} y1={-swordSize}
-                              x2={0} y2={swordSize * 0.4}
-                              stroke={isPast ? "hsl(0, 40%, 45%)" : "hsl(0, 65%, 55%)"}
-                              strokeWidth={1.8}
-                              strokeLinecap="round"
-                            />
-                            {/* Crossguard */}
-                            <line
-                              x1={-swordSize * 0.5} y1={swordSize * 0.4}
-                              x2={swordSize * 0.5} y2={swordSize * 0.4}
-                              stroke={isPast ? "hsl(0, 40%, 45%)" : "hsl(0, 65%, 55%)"}
-                              strokeWidth={1.5}
-                              strokeLinecap="round"
-                            />
-                            {/* Grip */}
-                            <line
-                              x1={0} y1={swordSize * 0.4}
-                              x2={0} y2={swordSize * 0.8}
-                              stroke={isPast ? "hsl(0, 30%, 40%)" : "hsl(0, 50%, 45%)"}
-                              strokeWidth={2}
-                              strokeLinecap="round"
-                            />
+                            <CombatModeIcon icon={cr.mode.icon} size={s} color={color} colorDim={colorDim} />
                           </g>
                           {/* Reward label */}
                           <text
                             x={cx}
-                            y={cy + swordSize + 8}
+                            y={cy + s + 8}
                             textAnchor="middle"
                             fontSize={6}
                             fill={isPast ? "hsl(0, 30%, 40%)" : "hsl(0, 50%, 60%)"}
