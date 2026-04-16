@@ -6,6 +6,8 @@ export interface GameConfig {
   shortName: string
   currency: string
   pullItem: string
+  /** Premium currency purchasable with real money (converts 1:1 to currency) */
+  paidCurrency: string
   currencyPerPull: number
   baseRate5Star: number
   pity5Star: number
@@ -36,6 +38,7 @@ export const GAMES: Record<GameId, GameConfig> = {
     shortName: "GI",
     currency: "Primogems",
     pullItem: "Intertwined Fate",
+    paidCurrency: "Genesis Crystals",
     currencyPerPull: 160,
     baseRate5Star: 0.006,
     pity5Star: 90,
@@ -62,6 +65,7 @@ export const GAMES: Record<GameId, GameConfig> = {
     shortName: "HSR",
     currency: "Stellar Jade",
     pullItem: "Star Rail Special Pass",
+    paidCurrency: "Oneiric Shard",
     currencyPerPull: 160,
     baseRate5Star: 0.006,
     pity5Star: 90,
@@ -88,6 +92,7 @@ export const GAMES: Record<GameId, GameConfig> = {
     shortName: "ZZZ",
     currency: "Polychrome",
     pullItem: "Encrypted Master Tape",
+    paidCurrency: "Monochromes",
     currencyPerPull: 160,
     baseRate5Star: 0.006,
     pity5Star: 90,
@@ -114,6 +119,7 @@ export const GAMES: Record<GameId, GameConfig> = {
     shortName: "WuWa",
     currency: "Astrite",
     pullItem: "Radiant Tide",
+    paidCurrency: "Lunites",
     currencyPerPull: 160,
     baseRate5Star: 0.008,
     pity5Star: 80,

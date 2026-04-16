@@ -133,6 +133,7 @@ export function GameResourceCard({ gameId, onSave }: GameResourceCardProps) {
   const [, setSnapshotId] = useState<number | null>(null)
   const [currency, setCurrency] = useState(0)
   const [pullItems, setPullItems] = useState(0)
+  const [paidCurrency, setPaidCurrency] = useState(0)
   const [currentPity, setCurrentPity] = useState(0)
   const [isGuaranteed, setIsGuaranteed] = useState(false)
   const [weaponCurrentPity, setWeaponCurrentPity] = useState(0)
@@ -158,6 +159,7 @@ export function GameResourceCard({ gameId, onSave }: GameResourceCardProps) {
         setSnapshotId(latest.id ?? null)
         setCurrency(latest.currency)
         setPullItems(latest.pullItems)
+        setPaidCurrency(latest.paidCurrency ?? 0)
         setCurrentPity(latest.currentPity)
         setIsGuaranteed(latest.isGuaranteed)
         setWeaponCurrentPity(latest.weaponCurrentPity ?? 0)
@@ -172,7 +174,7 @@ export function GameResourceCard({ gameId, onSave }: GameResourceCardProps) {
     load()
   }, [gameId])
 
-  const totalCurrency = currency
+  const totalCurrency = currency + paidCurrency
   const totalPulls = pullItems + Math.floor(totalCurrency / game.currencyPerPull)
 
   const markDirty = useCallback(() => setDirty(true), [])
@@ -183,6 +185,7 @@ export function GameResourceCard({ gameId, onSave }: GameResourceCardProps) {
       updatedAt: new Date().toISOString(),
       currency,
       pullItems,
+      paidCurrency,
       currentPity,
       isGuaranteed,
       weaponCurrentPity,
@@ -257,6 +260,7 @@ export function GameResourceCard({ gameId, onSave }: GameResourceCardProps) {
         <div style={{ display: "flex", gap: 10 }}>
           <NumField label={game.currency} value={currency} onChange={(v) => { setCurrency(v); markDirty() }} />
           <NumField label={game.pullItem} value={pullItems} onChange={(v) => { setPullItems(v); markDirty() }} />
+          <NumField label={game.paidCurrency} value={paidCurrency} onChange={(v) => { setPaidCurrency(v); markDirty() }} />
         </div>
 
         {/* Character banner pity */}
@@ -388,7 +392,7 @@ export function GameResourceCard({ gameId, onSave }: GameResourceCardProps) {
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               {history.map((snap, i) => {
                 const d = new Date(snap.updatedAt)
-                const totalP = snap.pullItems + Math.floor(snap.currency / game.currencyPerPull)
+                const totalP = snap.pullItems + Math.floor((snap.currency + (snap.paidCurrency ?? 0)) / game.currencyPerPull)
                 return (
                   <div
                     key={snap.id ?? i}
