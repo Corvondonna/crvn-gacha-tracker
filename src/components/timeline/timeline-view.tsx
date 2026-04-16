@@ -852,7 +852,8 @@ export function TimelineView() {
 
       // Character banner pulls (current + paid currency + projected income)
       const pullItems = res?.pullItems ?? 0
-      const currency = (res?.currency ?? 0) + projectedCurrency
+      const paidCurrency = res?.paidCurrency ?? 0
+      const currency = (res?.currency ?? 0) + paidCurrency + projectedCurrency
       const totalCharPulls = pullItems + Math.floor(currency / config.currencyPerPull)
       const currentPity = res?.currentPity ?? 0
       const isGuaranteed = res?.isGuaranteed ?? false
