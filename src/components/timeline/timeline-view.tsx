@@ -257,7 +257,7 @@ function TimelineNodeDot({
   const pullStatus = saved?.pullStatus ?? "none"
   const hasPortrait = !!portraitUrl && !isLivestream
 
-  const specOpacity = isSpec ? 0.45 : 1
+  const specOpacity = (isSpec && !isLivestream) ? 0.45 : 1
   const accent = `hsl(var(${game.accentVar}))`
   const strokeDash = isLivestream ? "3 2" : undefined
 
@@ -685,7 +685,7 @@ function Tooltip({ data }: { data: TooltipData }) {
           {line2}
         </text>
       )}
-      {node.isSpeculation && (
+      {node.isSpeculation && node.phase !== "livestream" && (
         <text
           x={tooltipX + 12}
           y={tooltipY + 76}
