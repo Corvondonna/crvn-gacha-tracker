@@ -179,14 +179,21 @@ function CombatModeIcon({ icon, size: s, color, colorDim }: { icon: CombatIcon; 
         <path d={`M0,${-s*0.8} L${s*0.6},${-s*0.4} L${s*0.6},${s*0.2} Q${s*0.5},${s*0.7} 0,${s*0.8} Q${-s*0.5},${s*0.7} ${-s*0.6},${s*0.2} L${-s*0.6},${-s*0.4} Z`}
           fill="none" stroke={color} strokeWidth={sw} strokeLinejoin="round" />
       )
-    case "cobra": // Deadly Assault - snake head
+    case "cobra": // Deadly Assault - snake face with hood
       return (
         <g>
-          <path d={`M0,${s*0.7} Q${-s*0.3},${s*0.2} ${-s*0.1},${-s*0.2} Q0,${-s*0.7} ${s*0.3},${-s*0.8}`}
+          {/* Hood flare */}
+          <path d={`M0,${-s*0.9} Q${-s*0.8},${-s*0.2} ${-s*0.5},${s*0.4} Q${-s*0.2},${s*0.6} 0,${s*0.3}`}
             fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" />
-          <path d={`M0,${s*0.7} Q${s*0.3},${s*0.2} ${s*0.1},${-s*0.2} Q0,${-s*0.7} ${s*0.3},${-s*0.8}`}
+          <path d={`M0,${-s*0.9} Q${s*0.8},${-s*0.2} ${s*0.5},${s*0.4} Q${s*0.2},${s*0.6} 0,${s*0.3}`}
             fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" />
-          <circle cx={s*0.15} cy={-s*0.5} r={s*0.08} fill={color} />
+          {/* Eyes */}
+          <circle cx={-s*0.2} cy={-s*0.15} r={s*0.1} fill={color} />
+          <circle cx={s*0.2} cy={-s*0.15} r={s*0.1} fill={color} />
+          {/* Forked tongue */}
+          <line x1={0} y1={s*0.3} x2={0} y2={s*0.65} stroke={color} strokeWidth={sw*0.7} strokeLinecap="round" />
+          <line x1={0} y1={s*0.65} x2={-s*0.15} y2={s*0.8} stroke={color} strokeWidth={sw*0.7} strokeLinecap="round" />
+          <line x1={0} y1={s*0.65} x2={s*0.15} y2={s*0.8} stroke={color} strokeWidth={sw*0.7} strokeLinecap="round" />
         </g>
       )
     case "tower": // Tower of Adversity
