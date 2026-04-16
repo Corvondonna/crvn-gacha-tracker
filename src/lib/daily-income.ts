@@ -111,6 +111,43 @@ export function projectIncomeUntil(
     income += resets.length * mode.reward
   }
 
+  // Monthly pass renewal bonus: +300 paid currency per renewal
+  // If the pass expires before the target, assume the player renews each 30 days
+  if (snapshot.monthlyPassActive && snapshot.monthlyPassExpiry) {
+    const PASS_RENEWAL_BONUS = 300
+    const PASS_DURATION_DAYS = 30
+    const expiry = new Date(snapshot.monthlyPassExpiry)
+    if (expiry > now && expiry < targetDate) {
+      // Count how many renewals happen between expiry and target
+      const msPerDay = 24 * 60 * 60 * 1000
+      const daysAfterExpiry = Math.floor((targetDate.getTime() - expiry.getTime()) / msPerDay)
+      const renewals = Math.ceil(daysAfterExpiry / PASS_DURATION_DAYS)
+      income += PASS_RENEWAL_BONUS * renewals
+    }
+  }
+
+  // Patch-based fixed income: livestream codes (+300) and patch day maintenance (+600)
+  if (patchStarts) {
+    const LIVESTREAM_CODES = 300
+    const PATCH_DAY_REWARD = 600
+
+    for (const [key, patchStart] of patchStarts) {
+      if (!key.startsWith(gameId + ":")) continue
+
+      // Patch day reward: awarded on patch start day
+      if (patchStart > now && patchStart <= targetDate) {
+        income += PATCH_DAY_REWARD
+      }
+
+      // Livestream codes: awarded on livestream day (offset from patch start)
+      const livestreamDate = new Date(patchStart)
+      livestreamDate.setDate(livestreamDate.getDate() + config.patchCycle.livestreamOffsetDays)
+      if (livestreamDate > now && livestreamDate <= targetDate) {
+        income += LIVESTREAM_CODES
+      }
+    }
+  }
+
   return income
 }
 
