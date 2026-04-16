@@ -1,25 +1,65 @@
 import { GAMES, type GameId } from "./games"
 
 /**
- * Builds the per-pull probability table for hitting a 5-star.
+ * Community-mined per-pull rate increment after soft pity.
  *
- * Community-accepted model:
- *   rate(n) = baseRate + rampPerPull * (n - softPityStart + 1)
- *   where rampPerPull = (1 - baseRate) / (hardPity - softPityStart + 1)
+ * HoYoverse character banners (Genshin, HSR, ZZZ):
+ *   Pulls 1-73: 0.6% flat
+ *   Pull 74+: base 0.6% + 6.0% per pull past 73
+ *   Pull 90: hard pity (100%)
+ *
+ * HoYoverse weapon banners:
+ *   Pulls 1-62: 0.7% flat (Genshin) or similar
+ *   Pull 63+: base + 7.0% per pull past 62
+ *   Pull 80: hard pity (100%)
+ *
+ * Wuthering Waves character banner:
+ *   Pulls 1-65: 0.8% flat
+ *   Pull 66+: base 0.8% + 6.0% per pull past 65
+ *   Pull 80: hard pity (100%)
+ *
+ * Wuthering Waves weapon banner:
+ *   Pulls 1-55: 0.8% flat
+ *   Pull 56+: base + 6.0% per pull past 55
+ *   Pull 80: hard pity (100%)
+ *
+ * Sources: community data mining, paimon.moe aggregate stats,
+ * starrailstation.com aggregate data.
+ */
+
+const SOFT_PITY_INCREMENT: Record<string, number> = {
+  "genshin:char": 0.06,
+  "genshin:weapon": 0.07,
+  "hsr:char": 0.06,
+  "hsr:weapon": 0.07,
+  "zzz:char": 0.06,
+  "zzz:weapon": 0.07,
+  "wuwa:char": 0.06,
+  "wuwa:weapon": 0.06,
+}
+
+/**
+ * Builds the per-pull probability table for hitting a 5-star
+ * using community-mined escalating soft pity rates.
+ *
+ * After soft pity starts, each subsequent pull adds a fixed
+ * increment (~6-7%) on top of the base rate, capping at 100%
+ * at hard pity.
  */
 function buildRateTable(
   baseRate: number,
   softPity: number,
-  hardPity: number
+  hardPity: number,
+  increment: number
 ): number[] {
-  const rampPerPull = (1 - baseRate) / (hardPity - softPity + 1)
   const table: number[] = []
 
   for (let pull = 1; pull <= hardPity; pull++) {
     if (pull < softPity) {
       table.push(baseRate)
     } else if (pull < hardPity) {
-      table.push(baseRate + rampPerPull * (pull - softPity + 1))
+      const pullsIntoPity = pull - softPity + 1
+      table.push(Math.min(baseRate + increment * pullsIntoPity, 1.0))
     } else {
       table.push(1.0)
     }
@@ -35,7 +75,8 @@ function getCharRateTable(gameId: GameId): number[] {
   const key = `${gameId}:char`
   if (!rateTableCache[key]) {
     const c = GAMES[gameId]
-    rateTableCache[key] = buildRateTable(c.baseRate5Star, c.softPityStart, c.pity5Star)
+    const increment = SOFT_PITY_INCREMENT[key] ?? 0.06
+    rateTableCache[key] = buildRateTable(c.baseRate5Star, c.softPityStart, c.pity5Star, increment)
   }
   return rateTableCache[key]
 }
@@ -44,7 +85,8 @@ function getWeaponRateTable(gameId: GameId): number[] {
   const key = `${gameId}:weapon`
   if (!rateTableCache[key]) {
     const c = GAMES[gameId]
-    rateTableCache[key] = buildRateTable(c.weaponBaseRate, c.weaponSoftPityStart, c.weaponPity)
+    const increment = SOFT_PITY_INCREMENT[key] ?? 0.07
+    rateTableCache[key] = buildRateTable(c.weaponBaseRate, c.weaponSoftPityStart, c.weaponPity, increment)
   }
   return rateTableCache[key]
 }
