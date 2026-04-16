@@ -9,14 +9,12 @@ export interface CombatRewardResult {
 }
 
 /**
- * Checks for unclaimed combat mode rewards where the reset date
- * has already passed. Claims them by adding currency to the latest
- * resource snapshot.
+ * Tracks which combat mode resets have passed (for toast notifications).
+ * Does NOT modify resource snapshots. Combat rewards are projected into
+ * probability calculations via projectIncomeUntil() instead.
  *
  * Looks back up to 6 months to catch any missed resets.
- * Uses the combatClaims table to avoid double-claiming.
- *
- * Needs patch start dates for patchRelative modes (Genshin Stygian Onslaught).
+ * Uses the combatClaims table to avoid double-counting.
  */
 export async function claimCombatRewards(
   patchStarts?: Map<string, Date>
@@ -24,9 +22,6 @@ export async function claimCombatRewards(
   const now = new Date()
   const lookback = new Date(now.getFullYear(), now.getMonth() - 6, 1)
   const results: CombatRewardResult[] = []
-
-  // Group rewards by game so we do one snapshot update per game
-  const rewardsByGame = new Map<GameId, number>()
 
   for (const mode of COMBAT_MODES) {
     // Build game-specific patch starts for patchRelative
@@ -59,31 +54,12 @@ export async function claimCombatRewards(
         claimedAt: now.toISOString(),
       })
 
-      const current = rewardsByGame.get(mode.gameId) ?? 0
-      rewardsByGame.set(mode.gameId, current + mode.reward)
-
       results.push({
         gameId: mode.gameId,
         modeName: mode.name,
         amount: mode.reward,
       })
     }
-  }
-
-  // Apply accumulated rewards to each game's resource snapshot
-  for (const [gameId, totalReward] of rewardsByGame) {
-    const snapshots = await db.resources
-      .where("gameId")
-      .equals(gameId)
-      .sortBy("updatedAt")
-
-    const latest = snapshots[snapshots.length - 1]
-    if (!latest) continue
-
-    await db.resources.update(latest.id!, {
-      currency: latest.currency + totalReward,
-      updatedAt: now.toISOString(),
-    })
   }
 
   return results
