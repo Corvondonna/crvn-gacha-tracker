@@ -425,6 +425,34 @@ Two-tier storage, all client-side. No backend in v1.
 
 **V1 scope priority:** Timeline first, then Pull Tracker, then Resource Management.
 
+## Combat Mode System
+
+Permanent combat modes per game that reset on fixed schedules and award currency. Rendered as small icons on the timeline below each game's banner row. Combat rewards are projected into probability calculations via `projectIncomeUntil()` but do NOT modify stored resource snapshots.
+
+**Data:** `src/data/combat-modes.ts` defines all modes with schedule types:
+- `monthly`: resets on a specific day each month (e.g., Spiral Abyss on the 16th)
+- `interval`: fixed N-day cycle from an anchor date (e.g., HSR modes every 42 days)
+- `patchRelative`: offset from patch start (e.g., Stygian Onslaught 7 days after patch)
+
+**Modes and icons:**
+
+| Game | Mode | Icon | Reward | Schedule |
+|---|---|---|---|---|
+| GI | Spiral Abyss | gate | 800 Primogems | Monthly 16th |
+| GI | Imaginarium Theatre | theatre | 1000 Primogems | Monthly 1st |
+| GI | Stygian Onslaught | flower | 450 Primogems | Patch +7 days |
+| HSR | Apocalyptic Shadow | hourglass | 800 Stellar Jade | 42-day cycle |
+| HSR | Pure Fiction | dove | 800 Stellar Jade | 42-day cycle |
+| HSR | Memory of Chaos | crystal | 800 Stellar Jade | 42-day cycle |
+| ZZZ | Shiyu Defense | shield | 780 Polychrome | 14-day cycle |
+| ZZZ | Deadly Assault | cobra | 300 Polychrome | 14-day cycle |
+| WuWa | Tower of Adversity | tower | 800 Astrite | 28-day cycle |
+| WuWa | Whimpering Wastes | ship | 800 Astrite | 28-day cycle |
+
+**Tracking:** `combatClaims` table in Dexie tracks which resets have been seen (for toast notifications). The `claimCombatRewards()` function in `src/lib/combat-rewards.ts` records new claims on app load but does not touch resource snapshots. A one-time `reverseCombatRewardInflation()` cleanup exists to undo an earlier bug that incorrectly added combat rewards to stored currency.
+
+**Rendering:** `CombatModeIcon` component in `timeline-view.tsx` renders unique SVG icons per mode. Past nodes at 35% opacity, future at 85%, with "+reward" label below each icon.
+
 ## Development Notes
 
 - All banner structures follow a phase-based model: each patch has Phase 1 and Phase 2
