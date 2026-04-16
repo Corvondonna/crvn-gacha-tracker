@@ -1,5 +1,6 @@
 import { db, type ResourceSnapshot } from "./db"
 import { GAMES, GAME_IDS, type GameId } from "./games"
+import { COMBAT_MODES, getCombatModeResets } from "@/data/combat-modes"
 
 /**
  * Calculates the number of full days between two dates,
@@ -63,7 +64,8 @@ function getDailyIncome(gameId: GameId, snapshot: ResourceSnapshot): number {
 export function projectIncomeUntil(
   gameId: GameId,
   snapshot: ResourceSnapshot,
-  targetDate: Date
+  targetDate: Date,
+  patchStarts?: Map<string, Date>
 ): number {
   const config = GAMES[gameId]
   const now = new Date()
@@ -85,16 +87,28 @@ export function projectIncomeUntil(
     if (snapshot.monthlyPassExpiry) {
       const expiry = new Date(snapshot.monthlyPassExpiry)
       if (expiry > now) {
-        // Pass is still active. Count days until expiry or target, whichever is sooner.
         const passEnd = expiry < targetDate ? expiry : targetDate
         const passDays = Math.floor((passEnd.getTime() - now.getTime()) / (24 * 60 * 60 * 1000))
         income += config.monthlyPassDaily * Math.max(0, passDays)
       }
-      // else: already expired, no income from pass
     } else {
-      // No expiry set, assume active for the full duration
       income += config.monthlyPassDaily * totalDays
     }
+  }
+
+  // Combat mode rewards between now and target date
+  for (const mode of COMBAT_MODES) {
+    if (mode.gameId !== gameId) continue
+
+    const gamePatchStarts = new Map<string, Date>()
+    if (patchStarts) {
+      for (const [key, date] of patchStarts) {
+        if (key.startsWith(gameId + ":")) gamePatchStarts.set(key, date)
+      }
+    }
+
+    const resets = getCombatModeResets(mode, now, targetDate, gamePatchStarts)
+    income += resets.length * mode.reward
   }
 
   return income

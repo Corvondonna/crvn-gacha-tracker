@@ -13,6 +13,7 @@ import { db, type TimelineEntry, type ResourceSnapshot } from "@/lib/db"
 import { seedTimeline } from "@/lib/seed-timeline"
 import { computeCharacterProbability, computeCombinedProbability, type ProbabilityResult } from "@/lib/probability"
 import { projectIncomeUntil } from "@/lib/daily-income"
+import { COMBAT_MODES, getCombatModeResets, type CombatMode } from "@/data/combat-modes"
 import { NodeEditor } from "./node-editor"
 
 const BASE_MONTH_WIDTH = 240
@@ -34,6 +35,11 @@ const PADDING_BOTTOM = 24
 const TOOLTIP_WIDTH = 180
 const TOOLTIP_HEIGHT = 88
 const TOOLTIP_OFFSET_Y = 12
+
+interface CombatResetNode {
+  mode: CombatMode
+  date: Date
+}
 
 interface TooltipData {
   node: TimelineNode
@@ -771,7 +777,7 @@ export function TimelineView() {
     return Math.max(computed, MIN_ROW_HEIGHT)
   }, [containerHeight])
 
-  const { months, allNodes, allPatches, totalWidth, totalHeight } = useMemo(() => {
+  const { months, allNodes, allPatches, combatResets, totalWidth, totalHeight } = useMemo(() => {
     const months = getMonthsBetween(rangeStart, rangeEnd)
     const totalWidth = months.length * monthWidth + PADDING_LEFT + PADDING_RIGHT
     const totalHeight = HEADER_HEIGHT + GAME_IDS.length * rowHeight + PADDING_BOTTOM
@@ -792,7 +798,28 @@ export function TimelineView() {
       allNodes.push(...nodes)
     }
 
-    return { months, allNodes, allPatches, totalWidth, totalHeight }
+    // Build patch start dates map for patchRelative combat modes
+    const patchStartMap = new Map<string, Date>()
+    for (const p of allPatches) {
+      patchStartMap.set(`${p.gameId}:${p.version}`, p.phase1Start)
+    }
+
+    // Generate combat mode reset nodes
+    const combatResets: CombatResetNode[] = []
+    for (const mode of COMBAT_MODES) {
+      // For patchRelative, filter patch starts to matching game
+      const gamePatchStarts = new Map<string, Date>()
+      for (const [key, date] of patchStartMap) {
+        if (key.startsWith(mode.gameId + ":")) gamePatchStarts.set(key, date)
+      }
+
+      const dates = getCombatModeResets(mode, rangeStart, rangeEnd, gamePatchStarts)
+      for (const date of dates) {
+        combatResets.push({ mode, date })
+      }
+    }
+
+    return { months, allNodes, allPatches, combatResets, patchStartMap, totalWidth, totalHeight }
   }, [rowHeight, monthWidth])
 
   // Compute probability only for the next upcoming character per game
@@ -821,7 +848,7 @@ export function TimelineView() {
       const config = GAMES[node.gameId]
 
       // Project daily income from now until the banner date
-      const projectedCurrency = res ? projectIncomeUntil(node.gameId, res, node.date) : 0
+      const projectedCurrency = res ? projectIncomeUntil(node.gameId, res, node.date, patchStartMap) : 0
 
       // Character banner pulls (current + paid currency + projected income)
       const pullItems = res?.pullItems ?? 0
@@ -1017,6 +1044,62 @@ export function TimelineView() {
                   >
                     {game.shortName}
                   </text>
+
+                  {/* Combat mode reset nodes */}
+                  {combatResets
+                    .filter((cr) => cr.mode.gameId === gameId)
+                    .map((cr, ci) => {
+                      const cx = dateToX(cr.date, rangeStart, monthWidth)
+                      const cy = y + rowHeight * 0.32
+                      const isPast = cr.date <= now
+                      const swordSize = 7
+                      return (
+                        <g
+                          key={`combat-${cr.mode.id}-${ci}`}
+                          opacity={isPast ? 0.35 : 0.85}
+                          style={{ cursor: "default" }}
+                        >
+                          {/* Sword icon */}
+                          <g transform={`translate(${cx}, ${cy})`}>
+                            {/* Blade */}
+                            <line
+                              x1={0} y1={-swordSize}
+                              x2={0} y2={swordSize * 0.4}
+                              stroke={isPast ? "hsl(0, 40%, 45%)" : "hsl(0, 65%, 55%)"}
+                              strokeWidth={1.8}
+                              strokeLinecap="round"
+                            />
+                            {/* Crossguard */}
+                            <line
+                              x1={-swordSize * 0.5} y1={swordSize * 0.4}
+                              x2={swordSize * 0.5} y2={swordSize * 0.4}
+                              stroke={isPast ? "hsl(0, 40%, 45%)" : "hsl(0, 65%, 55%)"}
+                              strokeWidth={1.5}
+                              strokeLinecap="round"
+                            />
+                            {/* Grip */}
+                            <line
+                              x1={0} y1={swordSize * 0.4}
+                              x2={0} y2={swordSize * 0.8}
+                              stroke={isPast ? "hsl(0, 30%, 40%)" : "hsl(0, 50%, 45%)"}
+                              strokeWidth={2}
+                              strokeLinecap="round"
+                            />
+                          </g>
+                          {/* Reward label */}
+                          <text
+                            x={cx}
+                            y={cy + swordSize + 8}
+                            textAnchor="middle"
+                            fontSize={6}
+                            fill={isPast ? "hsl(0, 30%, 40%)" : "hsl(0, 50%, 60%)"}
+                            fontWeight="600"
+                          >
+                            +{cr.mode.reward}
+                          </text>
+                        </g>
+                      )
+                    })}
 
                   {allNodes
                     .filter((n) => n.gameId === gameId && n.date >= rangeStart)

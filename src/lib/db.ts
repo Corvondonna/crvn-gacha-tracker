@@ -58,11 +58,25 @@ export interface CharacterRegistration {
   valueTier: "limited" | "rerun" | "standard" | "four-star"
 }
 
+/** Tracks which combat mode resets have been claimed (rewards added to currency) */
+export interface CombatRewardClaim {
+  id?: number
+  /** Combat mode ID (e.g., "gi-abyss") */
+  modeId: string
+  /** ISO date string of the reset that was claimed */
+  resetDate: string
+  /** Amount of currency added */
+  amount: number
+  /** When the claim was processed */
+  claimedAt: string
+}
+
 const db = new Dexie("CrvnGachaTracker") as Dexie & {
   pulls: EntityTable<PullRecord, "id">
   timeline: EntityTable<TimelineEntry, "id">
   resources: EntityTable<ResourceSnapshot, "id">
   characters: EntityTable<CharacterRegistration, "id">
+  combatClaims: EntityTable<CombatRewardClaim, "id">
 }
 
 db.version(1).stores({
@@ -125,6 +139,14 @@ db.version(5).stores({
     }
     if (entry.paidCurrency === undefined) entry.paidCurrency = 0
   })
+})
+
+db.version(6).stores({
+  pulls: "++id, gameId, bannerType, timestamp, rarity",
+  timeline: "++id, gameId, version, startDate",
+  resources: "++id, gameId, updatedAt",
+  characters: "++id, gameId, displayName, internalId",
+  combatClaims: "++id, modeId, resetDate",
 })
 
 export { db }
