@@ -6,7 +6,7 @@ import { Timeline } from "@/pages/Timeline"
 import { Pulls } from "@/pages/Pulls"
 import { Resources } from "@/pages/Resources"
 import { accumulateDailyIncome, type IncomeAccumulation } from "@/lib/daily-income"
-import { claimCombatRewards, type CombatRewardResult } from "@/lib/combat-rewards"
+import { claimCombatRewards, reverseCombatRewardInflation, type CombatRewardResult } from "@/lib/combat-rewards"
 import { generatePatchSeries } from "@/lib/timeline"
 import { PATCH_ANCHORS } from "@/data/patch-anchors"
 import { IncomeToast } from "@/components/ui/income-toast"
@@ -34,12 +34,15 @@ function App() {
       }
     }
 
-    // Run both accumulations
-    accumulateDailyIncome().then((results) => {
+    // One-time fix: reverse combat rewards that were incorrectly added to snapshots
+    reverseCombatRewardInflation().then(() => {
+      // Run both accumulations after cleanup
+      accumulateDailyIncome().then((results) => {
       if (results.length > 0) setIncomeItems(results)
     })
-    claimCombatRewards(patchStarts).then((results) => {
-      if (results.length > 0) setCombatItems(results)
+      claimCombatRewards(patchStarts).then((results) => {
+        if (results.length > 0) setCombatItems(results)
+      })
     })
   }, [])
 

@@ -64,3 +64,52 @@ export async function claimCombatRewards(
 
   return results
 }
+
+/**
+ * One-time cleanup: the old claimCombatRewards() incorrectly added
+ * combat reward currency directly to resource snapshots. This reads
+ * all claims from the combatClaims table, sums them per game, and
+ * subtracts those amounts from the latest resource snapshot.
+ *
+ * Uses a localStorage flag to run only once.
+ */
+export async function reverseCombatRewardInflation(): Promise<void> {
+  const FLAG = "combat-reward-inflation-fixed"
+  if (localStorage.getItem(FLAG)) return
+
+  const allClaims = await db.combatClaims.toArray()
+  if (allClaims.length === 0) {
+    localStorage.setItem(FLAG, "1")
+    return
+  }
+
+  // Sum claimed amounts per game using combat mode lookup
+  const modeGameMap = new Map<string, GameId>()
+  for (const mode of COMBAT_MODES) {
+    modeGameMap.set(mode.id, mode.gameId)
+  }
+
+  const totalByGame = new Map<GameId, number>()
+  for (const claim of allClaims) {
+    const gameId = modeGameMap.get(claim.modeId)
+    if (!gameId) continue
+    totalByGame.set(gameId, (totalByGame.get(gameId) ?? 0) + claim.amount)
+  }
+
+  // Subtract from each game's latest snapshot
+  for (const [gameId, total] of totalByGame) {
+    const snapshots = await db.resources
+      .where("gameId")
+      .equals(gameId)
+      .sortBy("updatedAt")
+
+    const latest = snapshots[snapshots.length - 1]
+    if (!latest) continue
+
+    await db.resources.update(latest.id!, {
+      currency: Math.max(0, latest.currency - total),
+    })
+  }
+
+  localStorage.setItem(FLAG, "1")
+}
