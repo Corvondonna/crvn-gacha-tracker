@@ -35,6 +35,8 @@ export interface ResourceSnapshot {
   updatedAt: string
   currency: number
   pullItems: number
+  /** Dedicated weapon banner pull items (e.g., WuWa Forging Tide). 0 for games without separate weapon pulls. */
+  weaponPullItems: number
   paidCurrency: number
   currentPity: number
   isGuaranteed: boolean
@@ -147,6 +149,18 @@ db.version(6).stores({
   resources: "++id, gameId, updatedAt",
   characters: "++id, gameId, displayName, internalId",
   combatClaims: "++id, modeId, resetDate",
+})
+
+db.version(7).stores({
+  pulls: "++id, gameId, bannerType, timestamp, rarity",
+  timeline: "++id, gameId, version, startDate",
+  resources: "++id, gameId, updatedAt",
+  characters: "++id, gameId, displayName, internalId",
+  combatClaims: "++id, modeId, resetDate",
+}).upgrade(tx => {
+  return tx.table("resources").toCollection().modify(entry => {
+    if (entry.weaponPullItems === undefined) entry.weaponPullItems = 0
+  })
 })
 
 export { db }

@@ -6,6 +6,8 @@ export interface GameConfig {
   shortName: string
   currency: string
   pullItem: string
+  /** Separate weapon banner pull item (only WuWa has this; null = same as pullItem) */
+  weaponPullItem: string | null
   /** Premium currency purchasable with real money (converts 1:1 to currency) */
   paidCurrency: string
   currencyPerPull: number
@@ -38,6 +40,7 @@ export const GAMES: Record<GameId, GameConfig> = {
     shortName: "GI",
     currency: "Primogems",
     pullItem: "Intertwined Fate",
+    weaponPullItem: null,
     paidCurrency: "Genesis Crystals",
     currencyPerPull: 160,
     baseRate5Star: 0.006,
@@ -65,6 +68,7 @@ export const GAMES: Record<GameId, GameConfig> = {
     shortName: "HSR",
     currency: "Stellar Jade",
     pullItem: "Star Rail Special Pass",
+    weaponPullItem: null,
     paidCurrency: "Oneiric Shard",
     currencyPerPull: 160,
     baseRate5Star: 0.006,
@@ -92,6 +96,7 @@ export const GAMES: Record<GameId, GameConfig> = {
     shortName: "ZZZ",
     currency: "Polychrome",
     pullItem: "Encrypted Master Tape",
+    weaponPullItem: null,
     paidCurrency: "Monochromes",
     currencyPerPull: 160,
     baseRate5Star: 0.006,
@@ -119,6 +124,7 @@ export const GAMES: Record<GameId, GameConfig> = {
     shortName: "WuWa",
     currency: "Astrite",
     pullItem: "Radiant Tide",
+    weaponPullItem: "Forging Tide",
     paidCurrency: "Lunites",
     currencyPerPull: 160,
     baseRate5Star: 0.008,

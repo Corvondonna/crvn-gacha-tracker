@@ -981,11 +981,14 @@ export function TimelineView() {
       // Project daily income from now until the banner date
       const projectedCurrency = res ? projectIncomeUntil(node.gameId, res, node.date, patchStartMap) : 0
 
-      // Character banner pulls (current + paid currency + projected income)
-      const pullItems = res?.pullItems ?? 0
+      // Currency pool (shared between banners): free currency + paid currency + projected income
       const paidCurrency = res?.paidCurrency ?? 0
-      const currency = (res?.currency ?? 0) + paidCurrency + projectedCurrency
-      const totalCharPulls = pullItems + Math.floor(currency / config.currencyPerPull)
+      const totalCurrency = (res?.currency ?? 0) + paidCurrency + projectedCurrency
+      const currencyPulls = Math.floor(totalCurrency / config.currencyPerPull)
+
+      // Character banner: pullItems (e.g., Radiant Tide) + currency-converted pulls
+      const charPullItems = res?.pullItems ?? 0
+      const totalCharPulls = charPullItems + currencyPulls
       const currentPity = res?.currentPity ?? 0
       const isGuaranteed = res?.isGuaranteed ?? false
 
@@ -996,8 +999,12 @@ export function TimelineView() {
         const weaponPity = res?.weaponCurrentPity ?? 0
         const weaponGuaranteed = res?.weaponIsGuaranteed ?? false
         const weaponFP = res?.weaponFatePoints ?? 0
-        // Currency pool is shared between banners
-        const totalWeaponPulls = Math.floor(currency / config.currencyPerPull)
+        // Weapon banner: weaponPullItems (e.g., Forging Tide) + currency pulls
+        // For games without separate weapon pull items, weapon shares the same pullItems
+        const weaponPullItemCount = config.weaponPullItem
+          ? (res?.weaponPullItems ?? 0)
+          : charPullItems
+        const totalWeaponPulls = weaponPullItemCount + currencyPulls
         result = computeCombinedProbability(
           node.gameId,
           currentPity, totalCharPulls, isGuaranteed,

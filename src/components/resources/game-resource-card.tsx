@@ -133,6 +133,7 @@ export function GameResourceCard({ gameId, onSave }: GameResourceCardProps) {
   const [, setSnapshotId] = useState<number | null>(null)
   const [currency, setCurrency] = useState(0)
   const [pullItems, setPullItems] = useState(0)
+  const [weaponPullItems, setWeaponPullItems] = useState(0)
   const [paidCurrency, setPaidCurrency] = useState(0)
   const [currentPity, setCurrentPity] = useState(0)
   const [isGuaranteed, setIsGuaranteed] = useState(false)
@@ -159,6 +160,7 @@ export function GameResourceCard({ gameId, onSave }: GameResourceCardProps) {
         setSnapshotId(latest.id ?? null)
         setCurrency(latest.currency)
         setPullItems(latest.pullItems)
+        setWeaponPullItems(latest.weaponPullItems ?? 0)
         setPaidCurrency(latest.paidCurrency ?? 0)
         setCurrentPity(latest.currentPity)
         setIsGuaranteed(latest.isGuaranteed)
@@ -185,6 +187,7 @@ export function GameResourceCard({ gameId, onSave }: GameResourceCardProps) {
       updatedAt: new Date().toISOString(),
       currency,
       pullItems,
+      weaponPullItems,
       paidCurrency,
       currentPity,
       isGuaranteed,
@@ -257,9 +260,12 @@ export function GameResourceCard({ gameId, onSave }: GameResourceCardProps) {
       {/* Body */}
       <div style={{ padding: "14px 18px", display: "flex", flexDirection: "column", gap: 14 }}>
         {/* Currency row */}
-        <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <NumField label={game.currency} value={currency} onChange={(v) => { setCurrency(v); markDirty() }} />
           <NumField label={game.pullItem} value={pullItems} onChange={(v) => { setPullItems(v); markDirty() }} />
+          {game.weaponPullItem && (
+            <NumField label={game.weaponPullItem} value={weaponPullItems} onChange={(v) => { setWeaponPullItems(v); markDirty() }} />
+          )}
           <NumField label={game.paidCurrency} value={paidCurrency} onChange={(v) => { setPaidCurrency(v); markDirty() }} />
         </div>
 
