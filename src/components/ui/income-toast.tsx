@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { GAMES, type GameId } from "@/lib/games"
+import { GAMES } from "@/lib/games"
 import type { IncomeAccumulation } from "@/lib/daily-income"
 
 const DISPLAY_DURATION = 5000

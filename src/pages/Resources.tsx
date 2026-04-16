@@ -3,7 +3,7 @@ import { GAME_IDS } from "@/lib/games"
 import { GameResourceCard } from "@/components/resources/game-resource-card"
 
 export function Resources() {
-  const [saveCount, setSaveCount] = useState(0)
+  const [, setSaveCount] = useState(0)
 
   return (
     <div style={{ padding: 24 }}>

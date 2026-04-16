@@ -777,7 +777,7 @@ export function TimelineView() {
     return Math.max(computed, MIN_ROW_HEIGHT)
   }, [containerHeight])
 
-  const { months, allNodes, allPatches, combatResets, totalWidth, totalHeight } = useMemo(() => {
+  const { months, allNodes, allPatches, combatResets, patchStartMap, totalWidth, totalHeight } = useMemo(() => {
     const months = getMonthsBetween(rangeStart, rangeEnd)
     const totalWidth = months.length * monthWidth + PADDING_LEFT + PADDING_RIGHT
     const totalHeight = HEADER_HEIGHT + GAME_IDS.length * rowHeight + PADDING_BOTTOM
@@ -955,6 +955,7 @@ export function TimelineView() {
           isSpeculation: node.isSpeculation,
           isPriority: true,
           pullStatus: "none",
+          pullingWeapon: false,
         })
       }
       setDataVersion((v) => v + 1)

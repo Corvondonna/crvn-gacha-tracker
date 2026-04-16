@@ -1,5 +1,5 @@
 import { db } from "./db"
-import { GAMES, GAME_IDS, type GameId } from "./games"
+import { type GameId } from "./games"
 import { COMBAT_MODES, getCombatModeResets } from "@/data/combat-modes"
 
 export interface CombatRewardResult {

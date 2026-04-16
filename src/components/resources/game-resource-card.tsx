@@ -130,7 +130,7 @@ export function GameResourceCard({ gameId, onSave }: GameResourceCardProps) {
   const accentBg = (opacity: number) => `hsla(var(${game.accentVar}) / ${opacity})`
 
   const [loaded, setLoaded] = useState(false)
-  const [snapshotId, setSnapshotId] = useState<number | null>(null)
+  const [, setSnapshotId] = useState<number | null>(null)
   const [currency, setCurrency] = useState(0)
   const [pullItems, setPullItems] = useState(0)
   const [paidCurrency, setPaidCurrency] = useState(0)
