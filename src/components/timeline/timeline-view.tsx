@@ -14,6 +14,7 @@ import { seedTimeline } from "@/lib/seed-timeline"
 import { computeCharacterProbability, computeCombinedProbability, type ProbabilityResult } from "@/lib/probability"
 import { projectIncomeUntil } from "@/lib/daily-income"
 import { COMBAT_MODES, getCombatModeResets, type CombatMode, type CombatIcon } from "@/data/combat-modes"
+import { getCombatNodesVisible } from "@/components/layout/sidebar"
 import { NodeEditor } from "./node-editor"
 
 const BASE_MONTH_WIDTH = 240
@@ -422,7 +423,7 @@ function TimelineNodeDot({
             y={y + 1}
             textAnchor="middle"
             dominantBaseline="middle"
-            fontSize={node.phase === 1 ? 10 : 8}
+            fontSize={node.phase === 1 ? 12 : 10}
             fontWeight="bold"
             fill={accent}
           >
@@ -437,9 +438,9 @@ function TimelineNodeDot({
         <>
           <text
             x={x}
-            y={y + baseHalf + 12}
+            y={y + baseHalf + 14}
             textAnchor="middle"
-            fontSize={9}
+            fontSize={11}
             fontWeight="bold"
             fill={accent}
           >
@@ -447,9 +448,9 @@ function TimelineNodeDot({
           </text>
           <text
             x={x}
-            y={y + baseHalf + 23}
+            y={y + baseHalf + 28}
             textAnchor="middle"
-            fontSize={8}
+            fontSize={10}
             fill="hsl(var(--muted-foreground))"
           >
             {formatDate(node.date)}
@@ -461,9 +462,9 @@ function TimelineNodeDot({
       {!hasPortrait && node.phase === 1 && (
         <text
           x={x}
-          y={y + baseHalf + 12}
+          y={y + baseHalf + 14}
           textAnchor="middle"
-          fontSize={9}
+          fontSize={11}
           fill="hsl(var(--muted-foreground))"
         >
           {formatDate(node.date)}
@@ -474,9 +475,9 @@ function TimelineNodeDot({
       {node.phase === 2 && (
         <text
           x={x}
-          y={y + baseHalf + 12}
+          y={y + baseHalf + 14}
           textAnchor="middle"
-          fontSize={9}
+          fontSize={11}
           fill="hsl(var(--muted-foreground))"
         >
           {formatDate(node.date)}
@@ -488,18 +489,18 @@ function TimelineNodeDot({
         <>
           <text
             x={x}
-            y={y + baseHalf + 12}
+            y={y + baseHalf + 14}
             textAnchor="middle"
-            fontSize={7}
+            fontSize={9}
             fill="hsl(var(--muted-foreground))"
           >
             {formatDate(node.date)}
           </text>
           <text
             x={x}
-            y={y + baseHalf + 22}
+            y={y + baseHalf + 26}
             textAnchor="middle"
-            fontSize={7}
+            fontSize={9}
             fill={accent}
             opacity={0.6}
           >
@@ -514,7 +515,7 @@ function TimelineNodeDot({
           x={x}
           y={y - baseHalf - 8}
           textAnchor="middle"
-          fontSize={9}
+          fontSize={11}
           fill={accent}
         >
           {displayName}
@@ -532,8 +533,8 @@ function TimelineNodeDot({
             "hsl(0, 60%, 50%)"
           // Position below the last text label
           const probY = node.phase === 1 && (saved?.characterName ?? node.characterName)
-            ? y + baseHalf + 34
-            : y + baseHalf + 23
+            ? y + baseHalf + 46
+            : y + baseHalf + 34
           const pullLabel = probability.pulls >= 1000
             ? `${(probability.pulls / 1000).toFixed(1)}k`
             : String(probability.pulls)
@@ -543,7 +544,7 @@ function TimelineNodeDot({
                 x={x}
                 y={probY}
                 textAnchor="middle"
-                fontSize={11}
+                fontSize={13}
                 fontWeight="bold"
                 fill={probColor}
                 opacity={0.9}
@@ -552,9 +553,9 @@ function TimelineNodeDot({
               </text>
               <text
                 x={x}
-                y={probY + 13}
+                y={probY + 16}
                 textAnchor="middle"
-                fontSize={9}
+                fontSize={11}
                 fill="hsl(var(--muted-foreground))"
                 opacity={0.7}
               >
@@ -581,7 +582,7 @@ function TimelineNodeDot({
             y={y + baseHalf * 0.65 + 1}
             textAnchor="middle"
             dominantBaseline="middle"
-            fontSize={9}
+            fontSize={11}
             fontWeight="bold"
             fill="hsl(142, 70%, 70%)"
           >
@@ -604,7 +605,7 @@ function TimelineNodeDot({
             y={y + baseHalf * 0.65 + 1}
             textAnchor="middle"
             dominantBaseline="middle"
-            fontSize={9}
+            fontSize={11}
             fontWeight="bold"
             fill="hsl(0, 70%, 70%)"
           >
@@ -714,7 +715,15 @@ export function TimelineView() {
   const [monthsForward, setMonthsForward] = useState(9)
   const [resourceMap, setResourceMap] = useState<Map<GameId, ResourceSnapshot>>(new Map())
   const [probMap, setProbMap] = useState<Map<string, ProbabilityResult>>(new Map())
+  const [showCombat, setShowCombat] = useState(getCombatNodesVisible)
   const dragState = useRef({ startX: 0, scrollLeft: 0, didDrag: false })
+
+  // Listen for combat toggle from sidebar
+  useEffect(() => {
+    const handler = () => setShowCombat(getCombatNodesVisible())
+    window.addEventListener("combat-toggle", handler)
+    return () => window.removeEventListener("combat-toggle", handler)
+  }, [])
 
   const monthWidth = BASE_MONTH_WIDTH * zoom
 
@@ -979,15 +988,17 @@ export function TimelineView() {
       const config = GAMES[node.gameId]
 
       // Project daily income from now until the banner date
-      const projectedCurrency = res ? projectIncomeUntil(node.gameId, res, node.date, patchStartMap) : 0
+      const projected = res
+        ? projectIncomeUntil(node.gameId, res, node.date, patchStartMap)
+        : { currency: 0, pullItems: 0, weaponPullItems: 0 }
 
       // Currency pool (shared between banners): free currency + paid currency + projected income
       const paidCurrency = res?.paidCurrency ?? 0
-      const totalCurrency = (res?.currency ?? 0) + paidCurrency + projectedCurrency
+      const totalCurrency = (res?.currency ?? 0) + paidCurrency + projected.currency
       const currencyPulls = Math.floor(totalCurrency / config.currencyPerPull)
 
-      // Character banner: pullItems (e.g., Radiant Tide) + currency-converted pulls
-      const charPullItems = res?.pullItems ?? 0
+      // Character banner: pullItems (e.g., Radiant Tide) + currency-converted pulls + projected pull items
+      const charPullItems = (res?.pullItems ?? 0) + projected.pullItems
       const totalCharPulls = charPullItems + currencyPulls
       const currentPity = res?.currentPity ?? 0
       const isGuaranteed = res?.isGuaranteed ?? false
@@ -1002,7 +1013,7 @@ export function TimelineView() {
         // Weapon banner: weaponPullItems (e.g., Forging Tide) + currency pulls
         // For games without separate weapon pull items, weapon shares the same pullItems
         const weaponPullItemCount = config.weaponPullItem
-          ? (res?.weaponPullItems ?? 0)
+          ? (res?.weaponPullItems ?? 0) + projected.weaponPullItems
           : charPullItems
         const totalWeaponPulls = weaponPullItemCount + currencyPulls
         result = computeCombinedProbability(
@@ -1185,13 +1196,13 @@ export function TimelineView() {
                   </text>
 
                   {/* Combat mode reset nodes */}
-                  {combatResets
+                  {showCombat && combatResets
                     .filter((cr) => cr.mode.gameId === gameId)
                     .map((cr, ci) => {
                       const cx = dateToX(cr.date, rangeStart, monthWidth)
                       const cy = y + rowHeight * 0.32
                       const isPast = cr.date <= now
-                      const s = 7
+                      const s = 12
                       const color = isPast ? "hsl(0, 40%, 45%)" : "hsl(0, 65%, 55%)"
                       const colorDim = isPast ? "hsl(0, 30%, 40%)" : "hsl(0, 50%, 45%)"
                       return (
@@ -1208,7 +1219,7 @@ export function TimelineView() {
                             x={cx}
                             y={cy + s + 8}
                             textAnchor="middle"
-                            fontSize={6}
+                            fontSize={8}
                             fill={isPast ? "hsl(0, 30%, 40%)" : "hsl(0, 50%, 60%)"}
                             fontWeight="600"
                           >

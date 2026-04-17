@@ -1,6 +1,8 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import { GAMES, type GameId } from "@/lib/games"
-import { db, type TimelineEntry } from "@/lib/db"
+import { db, type TimelineEntry, type ResourceSnapshot } from "@/lib/db"
+import { computeCharacterProbability, computeCombinedProbability, type ProbabilityResult } from "@/lib/probability"
+import { projectIncomeUntil } from "@/lib/daily-income"
 
 interface NodeEditorProps {
   gameId: GameId
@@ -24,6 +26,45 @@ const PULL_STATUSES = [
   { value: "failed", label: "Failed", icon: "✕" },
 ] as const
 
+function probTierColor(tier: ProbabilityResult["tier"]): string {
+  switch (tier) {
+    case "guaranteed": return "hsl(142, 70%, 50%)"
+    case "high": return "hsl(142, 50%, 45%)"
+    case "medium": return "hsl(45, 80%, 55%)"
+    case "low": return "hsl(25, 80%, 50%)"
+    case "very-low": return "hsl(0, 60%, 50%)"
+  }
+}
+
+function ProbRow({ label, result, pulls }: {
+  label: string
+  result: ProbabilityResult
+  pulls: number
+}) {
+  const color = probTierColor(result.tier)
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <span style={{ fontSize: 11, color: "hsl(var(--muted-foreground))" }}>{label}</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 11, color: "hsl(var(--muted-foreground))" }}>
+          {pulls} pulls
+        </span>
+        <span
+          style={{
+            fontSize: 13,
+            fontWeight: 700,
+            color,
+            minWidth: 42,
+            textAlign: "right",
+          }}
+        >
+          {result.percent}%
+        </span>
+      </div>
+    </div>
+  )
+}
+
 export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: NodeEditorProps) {
   const game = GAMES[gameId]
   const panelRef = useRef<HTMLDivElement>(null)
@@ -37,8 +78,9 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
   const [existingId, setExistingId] = useState<number | null>(null)
   const [portraitPreview, setPortraitPreview] = useState<string | null>(null)
   const [portraitBlob, setPortraitBlob] = useState<Blob | null>(null)
+  const [resource, setResource] = useState<ResourceSnapshot | null>(null)
 
-  // Load existing entry
+  // Load existing entry + resource snapshot
   useEffect(() => {
     async function load() {
       const entry = await db.timeline
@@ -59,6 +101,12 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
           setPortraitBlob(entry.characterPortrait)
         }
       }
+
+      const res = await db.resources
+        .where("gameId")
+        .equals(gameId)
+        .last()
+      if (res) setResource(res)
     }
     load()
   }, [gameId, version, phase])
@@ -172,6 +220,43 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
     setPortraitBlob(null)
     setPortraitPreview(null)
   }
+
+  // Compute probabilities from current resource snapshot
+  const probabilities = useMemo(() => {
+    if (!resource) return null
+
+    const config = GAMES[gameId]
+    const projected = projectIncomeUntil(gameId, resource, date)
+
+    const paidCurrency = resource.paidCurrency ?? 0
+    const totalCurrency = (resource.currency ?? 0) + paidCurrency + projected.currency
+    const currencyPulls = Math.floor(totalCurrency / config.currencyPerPull)
+
+    const charPullItems = (resource.pullItems ?? 0) + projected.pullItems
+    const totalCharPulls = charPullItems + currencyPulls
+    const currentPity = resource.currentPity ?? 0
+    const isGuaranteed = resource.isGuaranteed ?? false
+
+    if (totalCharPulls <= 0 && currentPity <= 0) return null
+
+    const charOnly = computeCharacterProbability(gameId, currentPity, totalCharPulls, isGuaranteed)
+
+    const weaponPity = resource.weaponCurrentPity ?? 0
+    const weaponGuaranteed = resource.weaponIsGuaranteed ?? false
+    const weaponFP = resource.weaponFatePoints ?? 0
+    const weaponPullItemCount = config.weaponPullItem
+      ? (resource.weaponPullItems ?? 0) + projected.weaponPullItems
+      : charPullItems
+    const totalWeaponPulls = weaponPullItemCount + currencyPulls
+
+    const combined = computeCombinedProbability(
+      gameId,
+      currentPity, totalCharPulls, isGuaranteed,
+      weaponPity, totalWeaponPulls, weaponGuaranteed, weaponFP
+    )
+
+    return { charOnly, combined, totalCharPulls, totalWeaponPulls }
+  }, [resource, gameId, date])
 
   const accentColor = `hsl(var(${game.accentVar}))`
   const accentBg = (opacity: number) => `hsla(var(${game.accentVar}) / ${opacity})`
@@ -497,6 +582,43 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
               })}
             </div>
           </div>
+
+          {/* Probability Preview */}
+          {probabilities && (
+            <div
+              style={{
+                padding: "12px 16px",
+                borderRadius: 10,
+                background: "hsla(0,0%,100%,0.03)",
+                border: "1px solid hsla(0,0%,100%,0.06)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 600,
+                  color: "hsl(var(--muted-foreground))",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.5px",
+                }}
+              >
+                Pull Probability
+              </div>
+              <ProbRow
+                label="Character only"
+                result={probabilities.charOnly}
+                pulls={probabilities.totalCharPulls}
+              />
+              <ProbRow
+                label="Character + Weapon"
+                result={probabilities.combined}
+                pulls={probabilities.totalCharPulls}
+              />
+            </div>
+          )}
 
           {/* Toggles */}
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>

@@ -6,12 +6,14 @@ function NumField({
   label,
   value,
   onChange,
+  onBlurExtra,
   max,
   suffix,
 }: {
   label: string
   value: number
   onChange: (v: number) => void
+  onBlurExtra?: () => void
   max?: number
   suffix?: string
 }) {
@@ -45,6 +47,7 @@ function NumField({
             const clamped = max !== undefined ? Math.min(num, max) : num
             setLocalVal(clamped === 0 ? "" : String(clamped))
             onChange(clamped)
+            onBlurExtra?.()
           }}
           placeholder="0"
           style={{
@@ -181,6 +184,18 @@ export function GameResourceCard({ gameId, onSave }: GameResourceCardProps) {
 
   const markDirty = useCallback(() => setDirty(true), [])
 
+  // Auto-convert currency to pull items for GI, HSR, ZZZ (not WuWa)
+  const autoConvertCurrency = useCallback(() => {
+    if (gameId === "wuwa") return
+    setCurrency((cur) => {
+      const pulls = Math.floor(cur / game.currencyPerPull)
+      if (pulls <= 0) return cur
+      setPullItems((prev) => prev + pulls)
+      setDirty(true)
+      return cur % game.currencyPerPull
+    })
+  }, [gameId, game.currencyPerPull])
+
   const handleSave = async () => {
     const snapshot: Omit<ResourceSnapshot, "id"> = {
       gameId,
@@ -261,7 +276,7 @@ export function GameResourceCard({ gameId, onSave }: GameResourceCardProps) {
       <div style={{ padding: "14px 18px", display: "flex", flexDirection: "column", gap: 14 }}>
         {/* Currency row */}
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <NumField label={game.currency} value={currency} onChange={(v) => { setCurrency(v); markDirty() }} />
+          <NumField label={game.currency} value={currency} onChange={(v) => { setCurrency(v); markDirty() }} onBlurExtra={autoConvertCurrency} />
           <NumField label={game.pullItem} value={pullItems} onChange={(v) => { setPullItems(v); markDirty() }} />
           {game.weaponPullItem && (
             <NumField label={game.weaponPullItem} value={weaponPullItems} onChange={(v) => { setWeaponPullItems(v); markDirty() }} />

@@ -55,27 +55,34 @@ function getDailyIncome(gameId: GameId, snapshot: ResourceSnapshot): number {
   return daily
 }
 
+export interface ProjectedIncome {
+  currency: number
+  pullItems: number
+  weaponPullItems: number
+}
+
 /**
- * Projects the total currency income from today until a future target date.
- * Accounts for monthly pass expiry if set.
- *
- * Returns the projected currency amount (not pulls).
+ * Projects total income from today until a future target date.
+ * Returns projected currency, character pull items, and weapon pull items.
  */
 export function projectIncomeUntil(
   gameId: GameId,
   snapshot: ResourceSnapshot,
   targetDate: Date,
   patchStarts?: Map<string, Date>
-): number {
+): ProjectedIncome {
   const config = GAMES[gameId]
   const now = new Date()
 
-  if (targetDate <= now) return 0
+  const zero: ProjectedIncome = { currency: 0, pullItems: 0, weaponPullItems: 0 }
+  if (targetDate <= now) return zero
 
   const totalDays = Math.floor((targetDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000))
-  if (totalDays <= 0) return 0
+  if (totalDays <= 0) return zero
 
   let income = 0
+  let bonusPullItems = 0
+  let bonusWeaponPullItems = 0
 
   // Daily commissions: full duration
   if (snapshot.dailyCommissionsActive) {
@@ -126,17 +133,23 @@ export function projectIncomeUntil(
     }
   }
 
-  // Patch-based fixed income: livestream codes (+300) and patch day maintenance (+600)
+  // Patch-based fixed income
   if (patchStarts) {
     const LIVESTREAM_CODES = 300
-    const PATCH_DAY_REWARD = 600
+    const PATCH_DAY_CURRENCY = 600 // Genshin, HSR, ZZZ
+    const WUWA_PATCH_TIDES = 7    // WuWa gives 7 Radiant Tide + 7 Forging Tide instead
 
     for (const [key, patchStart] of patchStarts) {
       if (!key.startsWith(gameId + ":")) continue
 
       // Patch day reward: awarded on patch start day
       if (patchStart > now && patchStart <= targetDate) {
-        income += PATCH_DAY_REWARD
+        if (gameId === "wuwa") {
+          bonusPullItems += WUWA_PATCH_TIDES
+          bonusWeaponPullItems += WUWA_PATCH_TIDES
+        } else {
+          income += PATCH_DAY_CURRENCY
+        }
       }
 
       // Livestream codes: awarded on livestream day (offset from patch start)
@@ -148,7 +161,22 @@ export function projectIncomeUntil(
     }
   }
 
-  return income
+  // Monthly pull item bonus: HoYoverse games give 5 pullItems on the 1st of each month
+  if (gameId !== "wuwa") {
+    const MONTHLY_PULL_ITEMS = 5
+    const startMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    const current = new Date(startMonth)
+    current.setMonth(current.getMonth() + 1) // start from next 1st
+
+    while (current <= targetDate) {
+      if (current > now) {
+        bonusPullItems += MONTHLY_PULL_ITEMS
+      }
+      current.setMonth(current.getMonth() + 1)
+    }
+  }
+
+  return { currency: income, pullItems: bonusPullItems, weaponPullItems: bonusWeaponPullItems }
 }
 
 export interface IncomeAccumulation {

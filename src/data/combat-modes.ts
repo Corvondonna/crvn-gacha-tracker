@@ -63,7 +63,7 @@ export const COMBAT_MODES: CombatMode[] = [
     name: "Apocalyptic Shadow",
     icon: "hourglass",
     reward: 800,
-    schedule: { type: "interval", intervalDays: 42, anchor: new Date(2026, 2, 16) }, // Mar 16
+    schedule: { type: "interval", intervalDays: 42, anchor: new Date(2026, 2, 16, 4, 0, 0) }, // Mar 16 4AM
   },
   {
     id: "hsr-pf",
@@ -71,7 +71,7 @@ export const COMBAT_MODES: CombatMode[] = [
     name: "Pure Fiction",
     icon: "dove",
     reward: 800,
-    schedule: { type: "interval", intervalDays: 42, anchor: new Date(2026, 2, 30) }, // Mar 30
+    schedule: { type: "interval", intervalDays: 42, anchor: new Date(2026, 2, 30, 4, 0, 0) }, // Mar 30 4AM
   },
   {
     id: "hsr-moc",
@@ -79,7 +79,7 @@ export const COMBAT_MODES: CombatMode[] = [
     name: "Memory of Chaos",
     icon: "crystal",
     reward: 800,
-    schedule: { type: "interval", intervalDays: 42, anchor: new Date(2026, 3, 13) }, // Apr 13
+    schedule: { type: "interval", intervalDays: 42, anchor: new Date(2026, 3, 13, 4, 0, 0) }, // Apr 13 4AM
   },
 
   // --- Zenless Zone Zero ---
@@ -90,7 +90,7 @@ export const COMBAT_MODES: CombatMode[] = [
     name: "Shiyu Defense",
     icon: "shield",
     reward: 780,
-    schedule: { type: "interval", intervalDays: 14, anchor: new Date(2026, 3, 3) }, // Apr 3
+    schedule: { type: "interval", intervalDays: 14, anchor: new Date(2026, 3, 3, 4, 0, 0) }, // Apr 3 4AM
   },
   {
     id: "zzz-deadly",
@@ -98,7 +98,7 @@ export const COMBAT_MODES: CombatMode[] = [
     name: "Deadly Assault",
     icon: "cobra",
     reward: 300,
-    schedule: { type: "interval", intervalDays: 14, anchor: new Date(2026, 3, 10) }, // Apr 10
+    schedule: { type: "interval", intervalDays: 14, anchor: new Date(2026, 3, 10, 4, 0, 0) }, // Apr 10 4AM
   },
 
   // --- Wuthering Waves ---
@@ -109,7 +109,7 @@ export const COMBAT_MODES: CombatMode[] = [
     name: "Tower of Adversity",
     icon: "tower",
     reward: 800,
-    schedule: { type: "interval", intervalDays: 28, anchor: new Date(2026, 2, 2) }, // Mar 2
+    schedule: { type: "interval", intervalDays: 28, anchor: new Date(2026, 2, 2, 4, 0, 0) }, // Mar 2 4AM
   },
   {
     id: "wuwa-ww",
@@ -117,7 +117,7 @@ export const COMBAT_MODES: CombatMode[] = [
     name: "Whimpering Wastes",
     icon: "ship",
     reward: 800,
-    schedule: { type: "interval", intervalDays: 28, anchor: new Date(2026, 2, 16) }, // Mar 16
+    schedule: { type: "interval", intervalDays: 28, anchor: new Date(2026, 2, 16, 4, 0, 0) }, // Mar 16 4AM
   },
 ]
 
@@ -134,13 +134,13 @@ export function getCombatModeResets(
   const schedule = mode.schedule
 
   if (schedule.type === "monthly") {
-    // Generate reset on dayOfMonth for each month in range
+    // Generate reset on dayOfMonth at 4:00 AM for each month in range
     const startMonth = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1)
     const endMonth = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth() + 1, 1)
 
     const current = new Date(startMonth)
     while (current < endMonth) {
-      const resetDate = new Date(current.getFullYear(), current.getMonth(), schedule.dayOfMonth)
+      const resetDate = new Date(current.getFullYear(), current.getMonth(), schedule.dayOfMonth, 4, 0, 0)
       if (resetDate >= rangeStart && resetDate <= rangeEnd) {
         resets.push(resetDate)
       }
@@ -168,9 +168,10 @@ export function getCombatModeResets(
       currentMs += intervalMs
     }
   } else if (schedule.type === "patchRelative" && patchStarts) {
-    // Generate reset at offsetDays after each patch start
+    // Generate reset at offsetDays after each patch start, at 4:00 AM
     for (const patchDate of patchStarts.values()) {
       const resetDate = new Date(patchDate.getTime() + schedule.offsetDays * 24 * 60 * 60 * 1000)
+      resetDate.setHours(4, 0, 0, 0)
       if (resetDate >= rangeStart && resetDate <= rangeEnd) {
         resets.push(resetDate)
       }
