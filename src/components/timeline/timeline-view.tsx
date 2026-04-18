@@ -687,8 +687,9 @@ function TimelineNodeDot({
             probability.tier === "medium" ? "hsl(45, 80%, 55%)" :
             probability.tier === "low" ? "hsl(25, 80%, 50%)" :
             "hsl(0, 60%, 50%)"
+          const hasVersionLine = GAMES[node.gameId].hasPatchCycle
           const probY = node.phase === 1 && (saved?.characterName ?? node.characterName)
-            ? y + baseHalf + 46
+            ? y + baseHalf + (hasVersionLine ? 46 : 30)
             : y + baseHalf + 34
           const pullLabel = probability.pulls >= 1000
             ? `${(probability.pulls / 1000).toFixed(1)}k`
@@ -1099,7 +1100,7 @@ export function TimelineView() {
   const effectiveRowCount = useMemo(() => {
     return GAME_IDS.reduce((count, gid) => {
       const game = GAMES[gid]
-      return count + (game.timelineLanes ? 2 : 1)
+      return count + (game.timelineLanes ? 1.5 : 1)
     }, 0)
   }, [])
 
@@ -1116,7 +1117,7 @@ export function TimelineView() {
     for (const gid of GAME_IDS) {
       if (gid === gameId) return offset
       const game = GAMES[gid]
-      offset += (game.timelineLanes ? 2 : 1) * rowHeight
+      offset += (game.timelineLanes ? 1.5 : 1) * rowHeight
     }
     return offset
   }, [rowHeight])
@@ -1124,7 +1125,7 @@ export function TimelineView() {
   /** Get the total height of a game row */
   const getRowHeight = useCallback((gameId: GameId) => {
     const game = GAMES[gameId]
-    return (game.timelineLanes ? 2 : 1) * rowHeight
+    return (game.timelineLanes ? 1.5 : 1) * rowHeight
   }, [rowHeight])
 
   const { months, allNodes, allPatches, combatResets, patchStartMap, totalWidth, totalHeight } = useMemo(() => {
@@ -1571,7 +1572,7 @@ export function TimelineView() {
             {GAME_IDS.map((gameId) => {
               const rowTop = getRowTop(gameId)
               const thisRowHeight = getRowHeight(gameId)
-              const y = rowTop + thisRowHeight / 2
+              const y = rowTop + thisRowHeight * 0.4
               const game = GAMES[gameId]
               const hasLanes = !!game.timelineLanes
 
@@ -1754,7 +1755,7 @@ export function TimelineView() {
                     })
                     .map((cr, ci) => {
                       const cx = dateToX(cr.date, rangeStart, monthWidth)
-                      const cy = y + thisRowHeight * 0.32
+                      const cy = rowTop + thisRowHeight * 0.82
                       const isPast = cr.date <= now
                       const minor = cr.mode.isMinor ?? false
                       const s = minor ? 8 : 12
