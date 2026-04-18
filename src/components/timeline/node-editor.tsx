@@ -397,7 +397,6 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
           background: "hsla(var(--glass-bg) / 0.85)",
           backdropFilter: "blur(20px)",
           WebkitBackdropFilter: "blur(20px)",
-          border: "1px solid hsla(var(--glass-border) / 0.4)",
           border: `1px solid ${accentBg(0.2)}`,
         }}
       >
