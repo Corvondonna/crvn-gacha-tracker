@@ -35,7 +35,7 @@ Estimated release schedules for characters, patches, events, and other notable m
 - WuWa 3.2: Mar 19, 2026 (Thu). Phase 2: Apr 9. Livestream for 3.3: Apr 17.
 - WuWa 3.3: Apr 30, 2026 (Thu). Phase 2: May 21 (predicted).
 
-**Version skip logic:** Genshin skips 6.8 and 6.9 (6.7 -> 7.0), and generally skips x.9. ZZZ skips x.9 (e.g., 2.9 -> 3.0). HSR and WuWa have no known version skips. Implemented in `src/lib/timeline.ts` via VERSION_SKIPS map.
+**Version skip logic:** All patch-cycle games universally skip x.9 (e.g., x.8 -> (x+1).0). Genshin additionally skips 6.8 (6.7 -> 7.0). Implemented in `src/lib/timeline.ts` via universal x.9 rule + EXTRA_SKIPS map.
 
 **Manual data per patch:** Character names, weapon names, and event details for each phase must be entered manually or sourced from community leaks/announcements. The cycle math only generates dates.
 

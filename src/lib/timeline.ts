@@ -54,19 +54,32 @@ export function calculatePatchDates(
 }
 
 /**
- * Known version skips per game. Key format: "major.minor" of the
- * version that would normally come next but should be skipped.
- * Example: ZZZ skips 2.9, so after 2.8 it jumps to 3.0.
+ * Additional per-game version skips beyond the universal x.9 rule.
+ * All patch-cycle games (genshin, hsr, zzz, wuwa) skip x.9 automatically.
+ * This map holds extra one-off skips like Genshin skipping 6.8.
  */
-const VERSION_SKIPS: Partial<Record<GameId, Set<string>>> = {
-  genshin: new Set(["6.8", "6.9"]),
-  hsr: new Set(["3.9"]),
-  zzz: new Set(["2.9"]),
+const EXTRA_SKIPS: Partial<Record<GameId, Set<string>>> = {
+  genshin: new Set(["6.8"]),
 }
 
 /**
- * Increments a version string by one patch, respecting known skips.
- * "4.2" -> "4.3", "2.8" -> "3.0" (ZZZ skip), "4.9" -> "5.0"
+ * Returns true if a version should be skipped for the given game.
+ * Universal rule: x.9 is always skipped (jumps to (x+1).0).
+ * Per-game extras handled via EXTRA_SKIPS.
+ */
+function shouldSkip(version: string, gameId?: GameId): boolean {
+  const minor = parseInt(version.split(".")[1], 10)
+  if (minor === 9) return true
+  if (gameId) {
+    const extras = EXTRA_SKIPS[gameId]
+    if (extras?.has(version)) return true
+  }
+  return false
+}
+
+/**
+ * Increments a version string by one patch, respecting skips.
+ * "4.2" -> "4.3", "2.8" -> "3.0" (skips x.9), "6.7" -> "7.0" (Genshin skips 6.8+6.9)
  */
 function incrementVersion(version: string, gameId?: GameId): string {
   const parts = version.split(".")
@@ -80,9 +93,7 @@ function incrementVersion(version: string, gameId?: GameId): string {
     next = `${major}.${minor + 1}`
   }
 
-  // If the next version is in the skip list, increment again
-  const skips = gameId ? VERSION_SKIPS[gameId] : undefined
-  if (skips?.has(next)) {
+  if (shouldSkip(next, gameId)) {
     return incrementVersion(next, gameId)
   }
 
@@ -90,7 +101,7 @@ function incrementVersion(version: string, gameId?: GameId): string {
 }
 
 /**
- * Decrements a version string by one patch, respecting known skips.
+ * Decrements a version string by one patch, respecting skips.
  */
 function decrementVersion(version: string, gameId?: GameId): string {
   const parts = version.split(".")
@@ -99,13 +110,12 @@ function decrementVersion(version: string, gameId?: GameId): string {
 
   let prev: string
   if (minor <= 0) {
-    prev = `${major - 1}.9`
+    prev = `${major - 1}.8`
   } else {
     prev = `${major}.${minor - 1}`
   }
 
-  const skips = gameId ? VERSION_SKIPS[gameId] : undefined
-  if (skips?.has(prev)) {
+  if (shouldSkip(prev, gameId)) {
     return decrementVersion(prev, gameId)
   }
 
