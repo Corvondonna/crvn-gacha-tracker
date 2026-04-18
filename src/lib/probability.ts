@@ -178,7 +178,7 @@ export function probabilityOfFeaturedWeapon(
   currentPity: number,
   availablePulls: number,
   isGuaranteed: boolean,
-  fatePoints: number
+  _fatePoints: number
 ): number {
   if (availablePulls <= 0) return 0
 
@@ -191,63 +191,26 @@ export function probabilityOfFeaturedWeapon(
     return probabilityOfAnyHit(table, hardPity, currentPity, availablePulls)
   }
 
-  // Fate points system (Genshin, HSR, ZZZ)
-  // hitsNeeded = maxFatePoints - currentFatePoints + 1, but the last hit is guaranteed
-  // With 0 fate points: need up to 3 hits (lose, lose, guaranteed)
-  // With 1 fate point: need up to 2 hits (lose, guaranteed)
-  // With 2 fate points: next hit is guaranteed
-
-  const maxFP = config.weaponMaxFatePoints // typically 2
-
-  if (fatePoints >= maxFP) {
-    // Next hit is guaranteed to be the chosen weapon
-    return probabilityOfAnyHit(table, hardPity, currentPity, availablePulls)
-  }
-
-  // Simulate the fate points system using recursive probability
-  // At each hit: 50% chance correct (done), 50% wrong (gain fate point, continue)
-  return fatePointProb(table, hardPity, currentPity, availablePulls, fatePoints, maxFP)
-}
-
-/**
- * Recursive probability calculator for the fate points system.
- */
-function fatePointProb(
-  table: number[],
-  hardPity: number,
-  currentPity: number,
-  remainingPulls: number,
-  currentFP: number,
-  maxFP: number
-): number {
-  if (remainingPulls <= 0) return 0
-
-  if (currentFP >= maxFP) {
-    // Next 5-star weapon is guaranteed to be correct
-    return probabilityOfAnyHit(table, hardPity, currentPity, remainingPulls)
-  }
-
-  // Sum over possible positions where next weapon 5-star lands
+  // All weapon banners now use a simple 50/50 system (same as character).
+  // Lose the 50/50 → next 5-star is guaranteed to be featured.
   let totalProb = 0
   let pSurvival = 1.0
   let pity = currentPity
 
-  for (let k = 0; k < remainingPulls; k++) {
+  for (let k = 0; k < availablePulls; k++) {
     pity++
     if (pity > hardPity) {
-      const pullsLeft = remainingPulls - k - 1
-      // 50% correct weapon (done), 50% wrong (fate point + 1, continue)
-      const pWrongThenGet = fatePointProb(table, hardPity, 0, pullsLeft, currentFP + 1, maxFP)
-      totalProb += pSurvival * (0.5 + 0.5 * pWrongThenGet)
+      const remaining = availablePulls - k - 1
+      const pSecond = probabilityOfAnyHit(table, hardPity, 0, remaining)
+      totalProb += pSurvival * (0.5 + 0.5 * pSecond)
       return Math.min(totalProb, 1.0)
     }
 
     const rate = table[pity - 1]
     const pHitHere = pSurvival * rate
-    const pullsLeft = remainingPulls - k - 1
-
-    const pWrongThenGet = fatePointProb(table, hardPity, 0, pullsLeft, currentFP + 1, maxFP)
-    totalProb += pHitHere * (0.5 + 0.5 * pWrongThenGet)
+    const remaining = availablePulls - k - 1
+    const pSecond = probabilityOfAnyHit(table, hardPity, 0, remaining)
+    totalProb += pHitHere * (0.5 + 0.5 * pSecond)
 
     pSurvival *= (1 - rate)
     if (pSurvival <= 1e-10) break

@@ -315,24 +315,15 @@ export function GameResourceCard({ gameId, onSave }: GameResourceCardProps) {
                 <span style={{ fontSize: 10, color: "hsl(142, 50%, 50%)" }}>Always guaranteed</span>
               </div>
             ) : (
-              <>
-                <div style={{ paddingBottom: 2 }}>
-                  <Toggle
-                    active={weaponIsGuaranteed}
-                    onToggle={() => { setWeaponIsGuaranteed(!weaponIsGuaranteed); markDirty() }}
-                    label="Guaranteed"
-                    accentBgVal={accentBg(0.35)}
-                    dotColor={accent}
-                  />
-                </div>
-                <NumField
-                  label="Fate Points"
-                  value={weaponFatePoints}
-                  onChange={(v) => { setWeaponFatePoints(v); markDirty() }}
-                  max={game.weaponMaxFatePoints}
-                  suffix={`/ ${game.weaponMaxFatePoints}`}
+              <div style={{ paddingBottom: 2 }}>
+                <Toggle
+                  active={weaponIsGuaranteed}
+                  onToggle={() => { setWeaponIsGuaranteed(!weaponIsGuaranteed); markDirty() }}
+                  label="Guaranteed"
+                  accentBgVal={accentBg(0.35)}
+                  dotColor={accent}
                 />
-              </>
+              </div>
             )}
           </div>
         </div>

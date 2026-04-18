@@ -306,7 +306,7 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
 
     const weaponPity = resource.weaponCurrentPity ?? 0
     const weaponGuaranteed = resource.weaponIsGuaranteed ?? false
-    const weaponFP = resource.weaponFatePoints ?? 0
+    const weaponFP = 0
     const weaponPullItemCount = config.weaponPullItem
       ? (resource.weaponPullItems ?? 0) + projected.weaponPullItems
       : charPullItems
@@ -327,7 +327,6 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
       isGuaranteed,
       weaponPity,
       weaponGuaranteed,
-      weaponFP,
     }
   }, [resource, gameId, date])
 
@@ -717,12 +716,9 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
                   ``,
                   game.weaponGuaranteed
                     ? `Weapon banner: always guaranteed`
-                    : [
-                        `Fate points: ${probabilities.weaponFP}/${game.weaponMaxFatePoints}`,
-                        probabilities.weaponGuaranteed
-                          ? `Next 5-star weapon is guaranteed`
-                          : `50/50 per hit. At max fate points, next hit guaranteed.`,
-                      ].join("\n"),
+                    : probabilities.weaponGuaranteed
+                      ? `Next 5-star weapon is guaranteed`
+                      : `50/50 system. Lose once, next is guaranteed.`,
                 ].join("\n")}
               />
             </div>
