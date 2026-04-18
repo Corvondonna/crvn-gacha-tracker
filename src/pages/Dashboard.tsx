@@ -188,9 +188,9 @@ export function Dashboard() {
 
       <div
         style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(5, 1fr)",
-          gap: 16,
+          display: "flex",
+          flexDirection: "column",
+          gap: 12,
         }}
       >
         {upcomingCards.cards.map((card, cardIndex) => {
@@ -216,7 +216,6 @@ export function Dashboard() {
             const currencyPulls = Math.floor(totalCurrency / game.currencyPerPull)
 
             if (isUma) {
-              // Uma: tickets + currency pulls
               const tickets = umaBannerLane === "support"
                 ? (res.secondaryPullItems ?? 0)
                 : (res.pullItems ?? 0)
@@ -267,33 +266,31 @@ export function Dashboard() {
           return (
             <div
               key={card.gameId}
-              className="glass rounded-xl animate-fade-up"
+              className="glass animate-fade-up"
               style={{
                 border: `1px solid ${accentBg(0.2)}`,
+                borderRadius: 10,
                 overflow: "hidden",
                 display: "flex",
-                flexDirection: "column",
+                flexDirection: "row",
+                alignItems: "stretch",
                 animationDelay: `${0.1 + cardIndex * 0.08}s`,
               }}
             >
-              {/* Portrait area */}
+              {/* Portrait - left side */}
               <div
                 style={{
-                  padding: "16px 16px 0",
+                  width: 88,
+                  minHeight: 88,
+                  flexShrink: 0,
+                  background: accentBg(0.06),
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  position: "relative",
+                  overflow: "hidden",
                 }}
               >
-                <div
-                  style={{
-                    height: 180,
-                    background: accentBg(0.06),
-                    borderRadius: 12,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    position: "relative",
-                    overflow: "hidden",
-                  }}
-                >
                 {portraitUrl ? (
                   <img
                     src={portraitUrl}
@@ -307,66 +304,61 @@ export function Dashboard() {
                 ) : (
                   <div
                     style={{
-                      width: 56,
-                      height: 56,
-                      borderRadius: 14,
-                      background: accentBg(0.12),
-                      border: `1px solid ${accentBg(0.2)}`,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 18,
+                      fontSize: 16,
                       fontWeight: 700,
                       color: accent,
+                      opacity: 0.6,
                     }}
                   >
                     {game.shortName}
                   </div>
                 )}
-
-                {/* Game badge overlay */}
-                <div
-                  style={{
-                    position: "absolute",
-                    top: 12,
-                    left: 12,
-                    padding: "4px 10px",
-                    borderRadius: 6,
-                    background: "rgba(0,0,0,0.55)",
-                    backdropFilter: "blur(8px)",
-                    fontSize: 10,
-                    fontWeight: 600,
-                    color: accent,
-                    letterSpacing: "0.3px",
-                  }}
-                >
-                  {game.shortName}
-                </div>
-
-                {/* Days badge */}
-                <div
-                  style={{
-                    position: "absolute",
-                    top: 12,
-                    right: 12,
-                    padding: "4px 10px",
-                    borderRadius: 6,
-                    background: "rgba(0,0,0,0.55)",
-                    backdropFilter: "blur(8px)",
-                    fontSize: 10,
-                    fontWeight: 600,
-                    color: "hsl(var(--muted-foreground))",
-                  }}
-                >
-                  {daysUntil === 0 ? "Today" : `${daysUntil}d`}
-                </div>
-                </div>
               </div>
 
-              {/* Info area */}
-              <div style={{ padding: "16px 20px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
+              {/* Info - right side */}
+              <div
+                style={{
+                  flex: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  padding: "14px 20px",
+                  gap: 24,
+                }}
+              >
+                {/* Game badge */}
+                <div
+                  style={{
+                    width: 40,
+                    flexShrink: 0,
+                    textAlign: "center",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      color: accent,
+                      letterSpacing: "0.3px",
+                    }}
+                  >
+                    {game.shortName}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 10,
+                      color: "hsl(var(--muted-foreground))",
+                      marginTop: 2,
+                    }}
+                  >
+                    {daysUntil === 0 ? "Today" : `${daysUntil}d`}
+                  </div>
+                </div>
+
+                {/* Divider */}
+                <div style={{ width: 1, height: 32, background: "hsla(0,0%,100%,0.06)", flexShrink: 0 }} />
+
                 {/* Character name + version */}
-                <div>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <div
                     style={{
                       display: "flex",
@@ -376,9 +368,12 @@ export function Dashboard() {
                   >
                     <span
                       style={{
-                        fontSize: 15,
+                        fontSize: 14,
                         fontWeight: 600,
                         color: hasCharacter ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground))",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
                       }}
                     >
                       {hasCharacter ? card.entry!.characterName : "Unregistered"}
@@ -421,7 +416,7 @@ export function Dashboard() {
                     style={{
                       fontSize: 11,
                       color: "hsl(var(--muted-foreground))",
-                      marginTop: 5,
+                      marginTop: 3,
                     }}
                   >
                     {isUma ? (card.entry?.characterName ?? "No target") : `${card.version} Phase ${card.phase}`}
@@ -430,47 +425,43 @@ export function Dashboard() {
                   </div>
                 </div>
 
-                {/* Pulls + Probability */}
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "12px 16px",
-                    borderRadius: 10,
-                    background: "hsla(0,0%,100%,0.03)",
-                    border: "1px solid hsla(0,0%,100%,0.06)",
-                  }}
-                >
-                  <div>
-                    <div style={{ fontSize: 10, color: "hsl(var(--muted-foreground))", marginBottom: 6 }}>
-                      Pulls ready
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 18,
-                        fontWeight: 700,
-                        color: accent,
-                        fontVariantNumeric: "tabular-nums",
-                      }}
-                    >
-                      {totalPulls}
-                    </div>
+                {/* Divider */}
+                <div style={{ width: 1, height: 32, background: "hsla(0,0%,100%,0.06)", flexShrink: 0 }} />
+
+                {/* Pulls */}
+                <div style={{ textAlign: "center", minWidth: 64, flexShrink: 0 }}>
+                  <div style={{ fontSize: 10, color: "hsl(var(--muted-foreground))", marginBottom: 4 }}>
+                    Pulls
                   </div>
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ fontSize: 10, color: "hsl(var(--muted-foreground))", marginBottom: 6 }}>
-                      Probability
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 18,
-                        fontWeight: 700,
-                        color: prob ? probTierColor(prob.tier) : "hsl(var(--muted-foreground))",
-                        fontVariantNumeric: "tabular-nums",
-                      }}
-                    >
-                      {prob ? `${prob.percent}%` : "—"}
-                    </div>
+                  <div
+                    style={{
+                      fontSize: 18,
+                      fontWeight: 700,
+                      color: accent,
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    {totalPulls}
+                  </div>
+                </div>
+
+                {/* Divider */}
+                <div style={{ width: 1, height: 32, background: "hsla(0,0%,100%,0.06)", flexShrink: 0 }} />
+
+                {/* Probability */}
+                <div style={{ textAlign: "center", minWidth: 64, flexShrink: 0 }}>
+                  <div style={{ fontSize: 10, color: "hsl(var(--muted-foreground))", marginBottom: 4 }}>
+                    Probability
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 18,
+                      fontWeight: 700,
+                      color: prob ? probTierColor(prob.tier) : "hsl(var(--muted-foreground))",
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    {prob ? `${prob.percent}%` : "\u2014"}
                   </div>
                 </div>
               </div>

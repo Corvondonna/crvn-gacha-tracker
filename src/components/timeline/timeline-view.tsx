@@ -1187,7 +1187,7 @@ export function TimelineView() {
     }
 
     return { months, allNodes, allPatches, combatResets, patchStartMap, totalWidth, totalHeight }
-  }, [rowHeight, monthWidth, umaEntries, effectiveRowCount])
+  }, [rowHeight, monthWidth, umaEntries, effectiveRowCount, selectedYear])
 
   // Compute probability only for the next upcoming character per game
   useEffect(() => {
