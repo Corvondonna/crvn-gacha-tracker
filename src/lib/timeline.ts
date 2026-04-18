@@ -1,4 +1,5 @@
 import { GAMES, type GameId } from "./games"
+import { PATCH_DATE_OVERRIDES } from "@/data/patch-anchors"
 
 export interface PatchDates {
   gameId: GameId
@@ -29,17 +30,23 @@ export function calculatePatchDates(
   phase1Start: Date
 ): PatchDates {
   const cycle = GAMES[gameId].patchCycle
+  const override = PATCH_DATE_OVERRIDES[`${gameId}:${version}`]
 
-  const phase2Start = new Date(phase1Start)
-  phase2Start.setDate(phase2Start.getDate() + cycle.phase2OffsetDays)
+  // Use override dates if available, fall back to calculated
+  const actualPhase1 = override?.phase1Start ?? phase1Start
 
-  const livestreamDate = new Date(phase1Start)
+  const phase2Start = override?.phase2Start ?? new Date(actualPhase1)
+  if (!override?.phase2Start) {
+    phase2Start.setDate(phase2Start.getDate() + cycle.phase2OffsetDays)
+  }
+
+  const livestreamDate = new Date(actualPhase1)
   livestreamDate.setDate(livestreamDate.getDate() + cycle.livestreamOffsetDays)
 
-  const patchEnd = new Date(phase1Start)
+  const patchEnd = new Date(actualPhase1)
   patchEnd.setDate(patchEnd.getDate() + cycle.durationDays)
 
-  return { gameId, version, phase1Start, phase2Start, livestreamDate, patchEnd }
+  return { gameId, version, phase1Start: actualPhase1, phase2Start, livestreamDate, patchEnd }
 }
 
 /**

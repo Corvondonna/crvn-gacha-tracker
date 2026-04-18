@@ -25,3 +25,28 @@ export const PATCH_ANCHORS: PatchAnchor[] = [
   // Wuthering Waves 3.2 - Mar 19, 2026 (Thu)
   { gameId: "wuwa", version: "3.2", phase1Start: new Date(2026, 2, 19) },
 ]
+
+/**
+ * Per-patch date overrides for when official schedules deviate from
+ * the standard cycle. Key format: "gameId:version".
+ *
+ * phase1Start and phase2Start are optional. If provided, they replace
+ * the calculated dates from the uniform cycle.
+ */
+export interface PatchDateOverride {
+  phase1Start?: Date
+  phase2Start?: Date
+}
+
+export const PATCH_DATE_OVERRIDES: Record<string, PatchDateOverride> = {
+  // HSR 4.0 - official schedule: Phase 1 Feb 13, Phase 2 Mar 4
+  "hsr:4.0": {
+    phase1Start: new Date(2026, 1, 13),
+    phase2Start: new Date(2026, 2, 4),
+  },
+  // HSR 4.1 - official schedule: Phase 1 Mar 25, Phase 2 Apr 8
+  "hsr:4.1": {
+    phase1Start: new Date(2026, 2, 25),
+    phase2Start: new Date(2026, 3, 8),
+  },
+}
