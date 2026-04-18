@@ -72,11 +72,15 @@ export function Dashboard() {
     rangeEnd.setMonth(rangeEnd.getMonth() + 12)
 
     const cards: UpcomingCard[] = []
+    const patchStartMap = new Map<string, Date>()
 
     for (const anchor of PATCH_ANCHORS) {
       const patches = generatePatchSeries(
         anchor.gameId, anchor.version, anchor.phase1Start, now, rangeEnd
       )
+      for (const p of patches) {
+        patchStartMap.set(`${p.gameId}:${p.version}`, p.phase1Start)
+      }
       const nodes = patchesToNodes(patches)
 
       // Find the first future node that has a registered character
@@ -126,7 +130,7 @@ export function Dashboard() {
       }
     }
 
-    return cards
+    return { cards, patchStartMap }
   }, [entries, resources])
 
   return (
@@ -161,7 +165,7 @@ export function Dashboard() {
           gap: 16,
         }}
       >
-        {upcomingCards.map((card, cardIndex) => {
+        {upcomingCards.cards.map((card, cardIndex) => {
           const game = GAMES[card.gameId]
           const accent = `hsl(var(${game.accentVar}))`
           const accentBg = (opacity: number) => `hsla(var(${game.accentVar}) / ${opacity})`
@@ -175,7 +179,7 @@ export function Dashboard() {
 
           if (card.resource) {
             const res = card.resource
-            const projected = projectIncomeUntil(card.gameId, res, card.date)
+            const projected = projectIncomeUntil(card.gameId, res, card.date, upcomingCards.patchStartMap)
             const paidCurrency = res.paidCurrency ?? 0
             const totalCurrency = (res.currency ?? 0) + paidCurrency + projected.currency
             const currencyPulls = Math.floor(totalCurrency / game.currencyPerPull)
