@@ -383,13 +383,21 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ background: "rgba(0,0,0,0.5)" }}
+      style={{
+        background: "rgba(0,0,0,0.6)",
+        backdropFilter: "blur(4px)",
+        WebkitBackdropFilter: "blur(4px)",
+      }}
     >
       <div
         ref={panelRef}
-        className="glass rounded-2xl overflow-hidden"
+        className="rounded-2xl overflow-hidden"
         style={{
           width: 420,
+          background: "hsla(var(--glass-bg) / 0.85)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+          border: "1px solid hsla(var(--glass-border) / 0.4)",
           border: `1px solid ${accentBg(0.2)}`,
         }}
       >
