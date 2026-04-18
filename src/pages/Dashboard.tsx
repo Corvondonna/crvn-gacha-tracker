@@ -1,61 +1,366 @@
+import { useState, useEffect, useMemo } from "react"
 import { GAMES, GAME_IDS, type GameId } from "@/lib/games"
-import { cn } from "@/lib/utils"
+import { db, type TimelineEntry, type ResourceSnapshot } from "@/lib/db"
+import { generatePatchSeries, patchesToNodes, type TimelineNode } from "@/lib/timeline"
+import { PATCH_ANCHORS } from "@/data/patch-anchors"
+import { computeCharacterProbability, type ProbabilityResult } from "@/lib/probability"
+import { projectIncomeUntil } from "@/lib/daily-income"
 
-const glowBorderClass: Record<GameId, string> = {
-  genshin: "glow-border-genshin",
-  hsr: "glow-border-hsr",
-  zzz: "glow-border-zzz",
-  wuwa: "glow-border-wuwa",
+function probTierColor(tier: ProbabilityResult["tier"]): string {
+  switch (tier) {
+    case "guaranteed": return "hsl(142, 70%, 50%)"
+    case "high": return "hsl(142, 50%, 45%)"
+    case "medium": return "hsl(45, 80%, 55%)"
+    case "low": return "hsl(25, 80%, 50%)"
+    case "very-low": return "hsl(0, 60%, 50%)"
+  }
 }
 
-const neonClass: Record<GameId, string> = {
-  genshin: "neon-genshin",
-  hsr: "neon-hsr",
-  zzz: "neon-zzz",
-  wuwa: "neon-wuwa",
+interface UpcomingCard {
+  gameId: GameId
+  version: string
+  phase: 1 | 2
+  date: Date
+  entry: TimelineEntry | null
+  resource: ResourceSnapshot | null
 }
 
 export function Dashboard() {
+  const [entries, setEntries] = useState<TimelineEntry[]>([])
+  const [resources, setResources] = useState<Map<GameId, ResourceSnapshot>>(new Map())
+  const [portraitUrls, setPortraitUrls] = useState<Map<string, string>>(new Map())
+
+  // Load timeline entries and resources
+  useEffect(() => {
+    async function load() {
+      const allEntries = await db.timeline.toArray()
+      setEntries(allEntries)
+
+      const resMap = new Map<GameId, ResourceSnapshot>()
+      for (const gid of GAME_IDS) {
+        const snaps = await db.resources
+          .where("gameId")
+          .equals(gid)
+          .sortBy("updatedAt")
+        const latest = snaps[snaps.length - 1]
+        if (latest) resMap.set(gid, latest)
+      }
+      setResources(resMap)
+    }
+    load()
+  }, [])
+
+  // Build portrait URLs
+  useEffect(() => {
+    const urls = new Map<string, string>()
+    for (const e of entries) {
+      if (e.characterPortrait) {
+        const key = `${e.gameId}:${e.version}:${e.phase}`
+        urls.set(key, URL.createObjectURL(e.characterPortrait))
+      }
+    }
+    setPortraitUrls(urls)
+    return () => {
+      for (const url of urls.values()) URL.revokeObjectURL(url)
+    }
+  }, [entries])
+
+  // Find next upcoming registered character per game
+  const upcomingCards = useMemo(() => {
+    const now = new Date()
+    const rangeEnd = new Date(now)
+    rangeEnd.setMonth(rangeEnd.getMonth() + 12)
+
+    const cards: UpcomingCard[] = []
+
+    for (const anchor of PATCH_ANCHORS) {
+      const patches = generatePatchSeries(
+        anchor.gameId, anchor.version, anchor.phase1Start, now, rangeEnd
+      )
+      const nodes = patchesToNodes(patches)
+
+      // Find the first future node that has a registered character
+      const futureNodes = nodes
+        .filter((n) => n.date >= now)
+        .sort((a, b) => a.date.getTime() - b.date.getTime())
+
+      let found: TimelineNode | null = null
+      let foundEntry: TimelineEntry | null = null
+
+      for (const node of futureNodes) {
+        const entry = entries.find(
+          (e) => e.gameId === node.gameId && e.version === node.version && e.phase === node.phase
+        )
+        if (entry?.characterName) {
+          found = node
+          foundEntry = entry
+          break
+        }
+      }
+
+      if (found && foundEntry) {
+        cards.push({
+          gameId: anchor.gameId,
+          version: found.version,
+          phase: found.phase as 1 | 2,
+          date: found.date,
+          entry: foundEntry,
+          resource: resources.get(anchor.gameId) ?? null,
+        })
+      } else {
+        // No registered character found, show the first future node anyway
+        const firstNode = futureNodes[0]
+        if (firstNode) {
+          const entry = entries.find(
+            (e) => e.gameId === firstNode.gameId && e.version === firstNode.version && e.phase === firstNode.phase
+          )
+          cards.push({
+            gameId: anchor.gameId,
+            version: firstNode.version,
+            phase: firstNode.phase as 1 | 2,
+            date: firstNode.date,
+            entry: entry ?? null,
+            resource: resources.get(anchor.gameId) ?? null,
+          })
+        }
+      }
+    }
+
+    return cards
+  }, [entries, resources])
+
   return (
-    <div className="p-8 h-full">
-      <h1 className="text-2xl font-bold mb-1 text-[hsl(var(--foreground))]">
-        crvn-gacha-tracker
+    <div style={{ padding: 48, height: "100%", overflowY: "auto" }}>
+      <h1
+        className="animate-fade-in"
+        style={{
+          fontSize: 22,
+          fontWeight: 700,
+          marginBottom: 4,
+          color: "hsl(var(--foreground))",
+        }}
+      >
+        Corvon Gacha Lab
       </h1>
-      <p className="text-sm text-[hsl(var(--muted-foreground))] mb-8">
+      <p
+        className="animate-fade-in"
+        style={{
+          fontSize: 13,
+          color: "hsl(var(--muted-foreground))",
+          marginBottom: 32,
+          animationDelay: "0.05s",
+        }}
+      >
         Personal gacha tracker across four games.
       </p>
 
-      <div className="grid grid-cols-4 gap-5">
-        {GAME_IDS.map((gameId) => {
-          const game = GAMES[gameId]
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(4, 1fr)",
+          gap: 16,
+        }}
+      >
+        {upcomingCards.map((card, cardIndex) => {
+          const game = GAMES[card.gameId]
+          const accent = `hsl(var(${game.accentVar}))`
+          const accentBg = (opacity: number) => `hsla(var(${game.accentVar}) / ${opacity})`
+          const portraitKey = `${card.gameId}:${card.version}:${card.phase}`
+          const portraitUrl = portraitUrls.get(portraitKey) ?? null
+          const hasCharacter = !!card.entry?.characterName
+
+          // Compute pulls and probability
+          let totalPulls = 0
+          let prob: ProbabilityResult | null = null
+
+          if (card.resource) {
+            const res = card.resource
+            const projected = projectIncomeUntil(card.gameId, res, card.date)
+            const paidCurrency = res.paidCurrency ?? 0
+            const totalCurrency = (res.currency ?? 0) + paidCurrency + projected.currency
+            const currencyPulls = Math.floor(totalCurrency / game.currencyPerPull)
+            const charPullItems = (res.pullItems ?? 0) + projected.pullItems
+            totalPulls = charPullItems + currencyPulls
+            const currentPity = res.currentPity ?? 0
+            const isGuaranteed = res.isGuaranteed ?? false
+
+            if (totalPulls > 0 || currentPity > 0) {
+              prob = computeCharacterProbability(card.gameId, currentPity, totalPulls, isGuaranteed)
+            }
+          }
+
+          // Days until release
+          const now = new Date()
+          const daysUntil = Math.max(0, Math.ceil((card.date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
+
           return (
             <div
-              key={gameId}
-              className={cn(
-                "glass-subtle rounded-xl p-6 transition-all duration-300 cursor-pointer min-h-[180px]",
-                glowBorderClass[gameId]
-              )}
+              key={card.gameId}
+              className="glass rounded-xl animate-fade-up"
+              style={{
+                border: `1px solid ${accentBg(0.2)}`,
+                overflow: "hidden",
+                display: "flex",
+                flexDirection: "column",
+                animationDelay: `${0.1 + cardIndex * 0.08}s`,
+              }}
             >
-              <div className="flex items-center gap-3 mb-4">
+              {/* Portrait area */}
+              <div
+                style={{
+                  padding: "16px 16px 0",
+                }}
+              >
                 <div
-                  className="w-10 h-10 rounded-lg flex items-center justify-center text-[11px] font-bold tracking-wider border border-white/10"
                   style={{
-                    background: `hsla(var(${game.accentVar}) / 0.12)`,
-                    color: `hsl(var(${game.accentVar}))`,
-                    textShadow: `0 0 6px hsla(var(${game.accentVar}) / 0.4)`,
+                    height: 180,
+                    background: accentBg(0.06),
+                    borderRadius: 12,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    position: "relative",
+                    overflow: "hidden",
+                  }}
+                >
+                {portraitUrl ? (
+                  <img
+                    src={portraitUrl}
+                    alt={card.entry?.characterName ?? ""}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      width: 56,
+                      height: 56,
+                      borderRadius: 14,
+                      background: accentBg(0.12),
+                      border: `1px solid ${accentBg(0.2)}`,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 18,
+                      fontWeight: 700,
+                      color: accent,
+                    }}
+                  >
+                    {game.shortName}
+                  </div>
+                )}
+
+                {/* Game badge overlay */}
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 12,
+                    left: 12,
+                    padding: "4px 10px",
+                    borderRadius: 6,
+                    background: "rgba(0,0,0,0.55)",
+                    backdropFilter: "blur(8px)",
+                    fontSize: 10,
+                    fontWeight: 600,
+                    color: accent,
+                    letterSpacing: "0.3px",
                   }}
                 >
                   {game.shortName}
                 </div>
-                <h2 className={cn("text-lg font-semibold", neonClass[gameId])}>
-                  {game.name}
-                </h2>
+
+                {/* Days badge */}
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 12,
+                    right: 12,
+                    padding: "4px 10px",
+                    borderRadius: 6,
+                    background: "rgba(0,0,0,0.55)",
+                    backdropFilter: "blur(8px)",
+                    fontSize: 10,
+                    fontWeight: 600,
+                    color: "hsl(var(--muted-foreground))",
+                  }}
+                >
+                  {daysUntil === 0 ? "Today" : `${daysUntil}d`}
+                </div>
+                </div>
               </div>
 
-              <div className="space-y-2 text-sm text-[hsl(var(--muted-foreground))]">
-                <p>{game.currency} / {game.pullItem}</p>
-                <p>Pity: {game.pity5Star} (soft at ~{game.softPityStart})</p>
-                <p>{game.patchCycle.durationDays}-day patch cycle</p>
+              {/* Info area */}
+              <div style={{ padding: "16px 20px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
+                {/* Character name + version */}
+                <div>
+                  <div
+                    style={{
+                      fontSize: 15,
+                      fontWeight: 600,
+                      color: hasCharacter ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground))",
+                    }}
+                  >
+                    {hasCharacter ? card.entry!.characterName : "Unregistered"}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: "hsl(var(--muted-foreground))",
+                      marginTop: 5,
+                    }}
+                  >
+                    {card.version} Phase {card.phase}
+                    {" \u00B7 "}
+                    {card.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                  </div>
+                </div>
+
+                {/* Pulls + Probability */}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "12px 16px",
+                    borderRadius: 10,
+                    background: "hsla(0,0%,100%,0.03)",
+                    border: "1px solid hsla(0,0%,100%,0.06)",
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: 10, color: "hsl(var(--muted-foreground))", marginBottom: 6 }}>
+                      Pulls ready
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 18,
+                        fontWeight: 700,
+                        color: accent,
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      {totalPulls}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: 10, color: "hsl(var(--muted-foreground))", marginBottom: 6 }}>
+                      Probability
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 18,
+                        fontWeight: 700,
+                        color: prob ? probTierColor(prob.tier) : "hsl(var(--muted-foreground))",
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      {prob ? `${prob.percent}%` : "—"}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )

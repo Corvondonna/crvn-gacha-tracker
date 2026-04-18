@@ -20,13 +20,34 @@ export async function claimCombatRewards(
   patchStarts?: Map<string, Date>
 ): Promise<CombatRewardResult[]> {
   const now = new Date()
-  const lookback = new Date(now.getFullYear(), now.getMonth() - 6, 1)
   const results: CombatRewardResult[] = []
+
+  // Determine the earliest valid lookback per game: the latest snapshot's updatedAt.
+  // Only claim resets that happened AFTER the snapshot was saved, because the user's
+  // recorded currency already accounts for everything before that point.
+  const snapshotDateByGame = new Map<GameId, Date>()
+  for (const gid of ["genshin", "hsr", "zzz", "wuwa"] as GameId[]) {
+    const snaps = await db.resources
+      .where("gameId")
+      .equals(gid)
+      .sortBy("updatedAt")
+    const latest = snaps[snaps.length - 1]
+    if (latest) {
+      snapshotDateByGame.set(gid, new Date(latest.updatedAt))
+    }
+  }
 
   // Accumulate total rewards per game before writing snapshots
   const rewardsByGame = new Map<GameId, number>()
 
   for (const mode of COMBAT_MODES) {
+    // No snapshot means no resource tracking for this game yet; skip.
+    const snapshotDate = snapshotDateByGame.get(mode.gameId)
+    if (!snapshotDate) continue
+
+    // Only look back to the snapshot date, not 6 months
+    const lookback = snapshotDate
+
     // Build game-specific patch starts for patchRelative
     const gamePatchStarts = new Map<string, Date>()
     if (patchStarts) {
@@ -39,6 +60,7 @@ export async function claimCombatRewards(
 
     for (const resetDate of resets) {
       if (resetDate > now) continue // not yet passed
+      if (resetDate <= snapshotDate) continue // already accounted for in snapshot
 
       const resetKey = resetDate.toISOString().split("T")[0]
 

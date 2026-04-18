@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { NavLink, useLocation } from "react-router-dom"
-import { Home, Calendar, History, Wallet, Swords } from "lucide-react"
+import { Home, Calendar, History, Wallet, Swords, CalendarClock } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const navItems = [
@@ -11,20 +11,29 @@ const navItems = [
 ]
 
 const COMBAT_TOGGLE_KEY = "showCombatNodes"
+const WEEKLY_TOGGLE_KEY = "showWeeklyNodes"
 
 /** Read combat node visibility from localStorage */
 export function getCombatNodesVisible(): boolean {
   return localStorage.getItem(COMBAT_TOGGLE_KEY) !== "false"
 }
 
+/** Read weekly node visibility from localStorage */
+export function getWeeklyNodesVisible(): boolean {
+  return localStorage.getItem(WEEKLY_TOGGLE_KEY) !== "false"
+}
+
 export function Sidebar() {
   const location = useLocation()
   const isTimeline = location.pathname === "/timeline"
   const [combatVisible, setCombatVisible] = useState(getCombatNodesVisible)
+  const [weeklyVisible, setWeeklyVisible] = useState(getWeeklyNodesVisible)
 
-  // Listen for storage changes from other components
   useEffect(() => {
-    const handler = () => setCombatVisible(getCombatNodesVisible())
+    const handler = () => {
+      setCombatVisible(getCombatNodesVisible())
+      setWeeklyVisible(getWeeklyNodesVisible())
+    }
     window.addEventListener("combat-toggle", handler)
     return () => window.removeEventListener("combat-toggle", handler)
   }, [])
@@ -33,6 +42,13 @@ export function Sidebar() {
     const next = !combatVisible
     localStorage.setItem(COMBAT_TOGGLE_KEY, String(next))
     setCombatVisible(next)
+    window.dispatchEvent(new Event("combat-toggle"))
+  }
+
+  const toggleWeekly = () => {
+    const next = !weeklyVisible
+    localStorage.setItem(WEEKLY_TOGGLE_KEY, String(next))
+    setWeeklyVisible(next)
     window.dispatchEvent(new Event("combat-toggle"))
   }
 
@@ -69,7 +85,7 @@ export function Sidebar() {
         >
           <button
             onClick={toggleCombat}
-            title={combatVisible ? "Hide combat nodes" : "Show combat nodes"}
+            title={combatVisible ? "Hide combat activities" : "Show combat activities"}
             className={cn(
               "w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 border",
               combatVisible
@@ -78,6 +94,18 @@ export function Sidebar() {
             )}
           >
             <Swords size={18} strokeWidth={1.5} />
+          </button>
+          <button
+            onClick={toggleWeekly}
+            title={weeklyVisible ? "Hide weeklies" : "Show weeklies"}
+            className={cn(
+              "w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 border",
+              weeklyVisible
+                ? "glass-subtle border-white/10 text-[hsl(var(--foreground))]"
+                : "border-transparent text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:border-white/5 hover:bg-white/[0.03]"
+            )}
+          >
+            <CalendarClock size={18} strokeWidth={1.5} />
           </button>
         </div>
       )}

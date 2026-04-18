@@ -36,15 +36,78 @@ function probTierColor(tier: ProbabilityResult["tier"]): string {
   }
 }
 
-function ProbRow({ label, result, pulls }: {
+function InfoIcon({ tooltip }: { tooltip: string }) {
+  const [show, setShow] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  return (
+    <div
+      ref={ref}
+      style={{ position: "relative", display: "inline-flex" }}
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+    >
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 14 14"
+        fill="none"
+        style={{ cursor: "help", flexShrink: 0 }}
+      >
+        <circle cx="7" cy="7" r="6" stroke="hsl(var(--muted-foreground))" strokeWidth="1.2" strokeOpacity="0.5" />
+        <text
+          x="7"
+          y="10.5"
+          textAnchor="middle"
+          fontSize="9"
+          fontWeight="600"
+          fill="hsl(var(--muted-foreground))"
+          style={{ userSelect: "none" }}
+        >
+          i
+        </text>
+      </svg>
+      {show && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: "calc(100% + 8px)",
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: 260,
+            padding: "10px 12px",
+            borderRadius: 8,
+            background: "hsl(220, 15%, 16%)",
+            border: "1px solid hsla(0,0%,100%,0.1)",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
+            fontSize: 10,
+            lineHeight: 1.5,
+            color: "hsl(var(--muted-foreground))",
+            whiteSpace: "pre-line",
+            zIndex: 100,
+            pointerEvents: "none",
+          }}
+        >
+          {tooltip}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ProbRow({ label, result, pulls, formula }: {
   label: string
   result: ProbabilityResult
   pulls: number
+  formula?: string
 }) {
   const color = probTierColor(result.tier)
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-      <span style={{ fontSize: 11, color: "hsl(var(--muted-foreground))" }}>{label}</span>
+      <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+        <span style={{ fontSize: 11, color: "hsl(var(--muted-foreground))" }}>{label}</span>
+        {formula && <InfoIcon tooltip={formula} />}
+      </div>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ fontSize: 11, color: "hsl(var(--muted-foreground))" }}>
           {pulls} pulls
@@ -255,7 +318,17 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
       weaponPity, totalWeaponPulls, weaponGuaranteed, weaponFP
     )
 
-    return { charOnly, combined, totalCharPulls, totalWeaponPulls }
+    return {
+      charOnly,
+      combined,
+      totalCharPulls,
+      totalWeaponPulls,
+      currentPity,
+      isGuaranteed,
+      weaponPity,
+      weaponGuaranteed,
+      weaponFP,
+    }
   }, [resource, gameId, date])
 
   const accentColor = `hsl(var(${game.accentVar}))`
@@ -611,11 +684,39 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
                 label="Character only"
                 result={probabilities.charOnly}
                 pulls={probabilities.totalCharPulls}
+                formula={[
+                  `Pity: ${probabilities.currentPity}/${game.pity5Star}`,
+                  `Status: ${probabilities.isGuaranteed ? "Guaranteed" : "50/50"}`,
+                  `Soft pity: pull ${game.softPityStart}+`,
+                  ``,
+                  `P = 1 - \u220F(1 - r\u1D62) over ${probabilities.totalCharPulls} pulls`,
+                  `r\u1D62 = ${(game.baseRate5Star * 100).toFixed(1)}% before soft pity`,
+                  `r\u1D62 = base + 6% per pull after ${game.softPityStart}`,
+                  ``,
+                  probabilities.isGuaranteed
+                    ? `Guaranteed: next 5-star is featured`
+                    : `50/50: P(featured) = \u2211 P(hit at k) \u00D7 (0.5 + 0.5 \u00D7 P(2nd hit))`,
+                ].join("\n")}
               />
               <ProbRow
                 label="Character + Weapon"
                 result={probabilities.combined}
                 pulls={probabilities.totalCharPulls}
+                formula={[
+                  `P(both) = P(character) \u00D7 P(weapon)`,
+                  ``,
+                  `Character: ${probabilities.charOnly.percent}%`,
+                  `Weapon: ${probabilities.totalWeaponPulls} pulls, pity ${probabilities.weaponPity}/${game.weaponPity}`,
+                  ``,
+                  game.weaponGuaranteed
+                    ? `Weapon banner: always guaranteed`
+                    : [
+                        `Fate points: ${probabilities.weaponFP}/${game.weaponMaxFatePoints}`,
+                        probabilities.weaponGuaranteed
+                          ? `Next 5-star weapon is guaranteed`
+                          : `50/50 per hit. At max fate points, next hit guaranteed.`,
+                      ].join("\n"),
+                ].join("\n")}
               />
             </div>
           )}

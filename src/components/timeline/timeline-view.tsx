@@ -14,7 +14,7 @@ import { seedTimeline } from "@/lib/seed-timeline"
 import { computeCharacterProbability, computeCombinedProbability, type ProbabilityResult } from "@/lib/probability"
 import { projectIncomeUntil } from "@/lib/daily-income"
 import { COMBAT_MODES, getCombatModeResets, type CombatMode, type CombatIcon } from "@/data/combat-modes"
-import { getCombatNodesVisible } from "@/components/layout/sidebar"
+import { getCombatNodesVisible, getWeeklyNodesVisible } from "@/components/layout/sidebar"
 import { NodeEditor } from "./node-editor"
 
 const BASE_MONTH_WIDTH = 240
@@ -215,6 +215,28 @@ function CombatModeIcon({ icon, size: s, color, colorDim }: { icon: CombatIcon; 
           <line x1={0} y1={s*0.3} x2={0} y2={-s*0.5} stroke={colorDim} strokeWidth={sw} strokeLinecap="round" />
           <path d={`M0,${-s*0.5} L${s*0.4},${s*0.1} L0,${s*0.1}`}
             fill="none" stroke={color} strokeWidth={sw} strokeLinejoin="round" />
+        </g>
+      )
+    case "coin": // Currency Wars (HSR weekly) - simple coin
+      return (
+        <g>
+          <circle cx={0} cy={0} r={s*0.55} fill="none" stroke={color} strokeWidth={sw} />
+          <text x={0} y={s*0.2} textAnchor="middle" fontSize={s*0.7} fontWeight="700" fill={color}
+            style={{ userSelect: "none" }}>$</text>
+        </g>
+      )
+    case "void": // Lost Void (ZZZ weekly) - portal/void circle
+      return (
+        <g>
+          <circle cx={0} cy={0} r={s*0.55} fill="none" stroke={color} strokeWidth={sw} />
+          <circle cx={0} cy={0} r={s*0.25} fill={color} opacity={0.4} />
+        </g>
+      )
+    case "gateway": // Thousand Gateways (WuWa weekly) - simple gate
+      return (
+        <g>
+          <path d={`M${-s*0.4},${s*0.5} V${-s*0.1} A${s*0.4},${s*0.5} 0 0,1 ${s*0.4},${-s*0.1} V${s*0.5}`}
+            fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" />
         </g>
       )
     default:
@@ -716,11 +738,15 @@ export function TimelineView() {
   const [resourceMap, setResourceMap] = useState<Map<GameId, ResourceSnapshot>>(new Map())
   const [probMap, setProbMap] = useState<Map<string, ProbabilityResult>>(new Map())
   const [showCombat, setShowCombat] = useState(getCombatNodesVisible)
+  const [showWeekly, setShowWeekly] = useState(getWeeklyNodesVisible)
   const dragState = useRef({ startX: 0, scrollLeft: 0, didDrag: false })
 
-  // Listen for combat toggle from sidebar
+  // Listen for combat/weekly toggles from sidebar
   useEffect(() => {
-    const handler = () => setShowCombat(getCombatNodesVisible())
+    const handler = () => {
+      setShowCombat(getCombatNodesVisible())
+      setShowWeekly(getWeeklyNodesVisible())
+    }
     window.addEventListener("combat-toggle", handler)
     return () => window.removeEventListener("combat-toggle", handler)
   }, [])
@@ -1196,19 +1222,25 @@ export function TimelineView() {
                   </text>
 
                   {/* Combat mode reset nodes */}
-                  {showCombat && combatResets
-                    .filter((cr) => cr.mode.gameId === gameId)
+                  {combatResets
+                    .filter((cr) => {
+                      if (cr.mode.gameId !== gameId) return false
+                      const isWeekly = cr.mode.isMinor ?? false
+                      if (isWeekly) return showWeekly
+                      return showCombat
+                    })
                     .map((cr, ci) => {
                       const cx = dateToX(cr.date, rangeStart, monthWidth)
                       const cy = y + rowHeight * 0.32
                       const isPast = cr.date <= now
-                      const s = 12
+                      const minor = cr.mode.isMinor ?? false
+                      const s = minor ? 8 : 12
                       const color = isPast ? "hsl(0, 40%, 45%)" : "hsl(0, 65%, 55%)"
                       const colorDim = isPast ? "hsl(0, 30%, 40%)" : "hsl(0, 50%, 45%)"
                       return (
                         <g
                           key={`combat-${cr.mode.id}-${ci}`}
-                          opacity={isPast ? 0.35 : 0.85}
+                          opacity={isPast ? (minor ? 0.25 : 0.35) : (minor ? 0.6 : 0.85)}
                           style={{ cursor: "default" }}
                         >
                           <g transform={`translate(${cx}, ${cy})`}>
@@ -1217,9 +1249,9 @@ export function TimelineView() {
                           {/* Reward label */}
                           <text
                             x={cx}
-                            y={cy + s + 8}
+                            y={cy + s + (minor ? 6 : 8)}
                             textAnchor="middle"
-                            fontSize={8}
+                            fontSize={minor ? 6 : 8}
                             fill={isPast ? "hsl(0, 30%, 40%)" : "hsl(0, 50%, 60%)"}
                             fontWeight="600"
                           >

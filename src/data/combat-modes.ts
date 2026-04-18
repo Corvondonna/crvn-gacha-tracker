@@ -3,8 +3,9 @@ import type { GameId } from "@/lib/games"
 export type CombatIcon =
   | "gate" | "theatre" | "flower"       // Genshin
   | "crystal" | "dove" | "hourglass"    // HSR
-  | "shield" | "cobra"                  // ZZZ
-  | "tower" | "ship"                    // WuWa
+  | "shield" | "cobra" | "void"         // ZZZ
+  | "tower" | "ship" | "gateway"        // WuWa
+  | "coin"                              // HSR weekly
 
 export interface CombatMode {
   id: string
@@ -13,11 +14,14 @@ export interface CombatMode {
   icon: CombatIcon
   /** Currency reward per reset cycle */
   reward: number
+  /** Minor modes render smaller on the timeline */
+  isMinor?: boolean
   /** Reset schedule type */
   schedule:
     | { type: "monthly"; dayOfMonth: number }
     | { type: "interval"; intervalDays: number; anchor: Date }
     | { type: "patchRelative"; offsetDays: number }
+    | { type: "weekly"; dayOfWeek: number }
 }
 
 /**
@@ -119,6 +123,35 @@ export const COMBAT_MODES: CombatMode[] = [
     reward: 800,
     schedule: { type: "interval", intervalDays: 28, anchor: new Date(2026, 2, 16, 4, 0, 0) }, // Mar 16 4AM
   },
+
+  // --- Weekly resets (Monday 4 AM) ---
+  {
+    id: "hsr-currency-wars",
+    gameId: "hsr",
+    name: "Currency Wars",
+    icon: "coin",
+    reward: 160,
+    isMinor: true,
+    schedule: { type: "weekly", dayOfWeek: 1 }, // Monday
+  },
+  {
+    id: "zzz-lost-void",
+    gameId: "zzz",
+    name: "Lost Void",
+    icon: "void",
+    reward: 160,
+    isMinor: true,
+    schedule: { type: "weekly", dayOfWeek: 1 }, // Monday
+  },
+  {
+    id: "wuwa-thousand-gateways",
+    gameId: "wuwa",
+    name: "Thousand Gateways",
+    icon: "gateway",
+    reward: 160,
+    isMinor: true,
+    schedule: { type: "weekly", dayOfWeek: 1 }, // Monday
+  },
 ]
 
 /**
@@ -175,6 +208,19 @@ export function getCombatModeResets(
       if (resetDate >= rangeStart && resetDate <= rangeEnd) {
         resets.push(resetDate)
       }
+    }
+  } else if (schedule.type === "weekly") {
+    // Generate every week on the specified day (0=Sun, 1=Mon, ...) at 4:00 AM
+    const current = new Date(rangeStart)
+    current.setHours(4, 0, 0, 0)
+    // Advance to first matching day of week
+    const diff = (schedule.dayOfWeek - current.getDay() + 7) % 7
+    current.setDate(current.getDate() + diff)
+    if (current < rangeStart) current.setDate(current.getDate() + 7)
+
+    while (current <= rangeEnd) {
+      resets.push(new Date(current))
+      current.setDate(current.getDate() + 7)
     }
   }
 
