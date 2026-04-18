@@ -3,7 +3,7 @@ import { GAMES, GAME_IDS, type GameId } from "@/lib/games"
 import { db, type TimelineEntry, type ResourceSnapshot } from "@/lib/db"
 import { generatePatchSeries, patchesToNodes, type TimelineNode } from "@/lib/timeline"
 import { PATCH_ANCHORS } from "@/data/patch-anchors"
-import { computeCharacterProbability, type ProbabilityResult } from "@/lib/probability"
+import { computeCharacterProbability, computeCombinedProbability, type ProbabilityResult } from "@/lib/probability"
 import { projectIncomeUntil } from "@/lib/daily-income"
 
 function probTierColor(tier: ProbabilityResult["tier"]): string {
@@ -176,6 +176,7 @@ export function Dashboard() {
           // Compute pulls and probability
           let totalPulls = 0
           let prob: ProbabilityResult | null = null
+          const isPullingWeapon = card.entry?.pullingWeapon ?? false
 
           if (card.resource) {
             const res = card.resource
@@ -189,7 +190,23 @@ export function Dashboard() {
             const isGuaranteed = res.isGuaranteed ?? false
 
             if (totalPulls > 0 || currentPity > 0) {
-              prob = computeCharacterProbability(card.gameId, currentPity, totalPulls, isGuaranteed)
+              if (isPullingWeapon) {
+                const weaponPity = res.weaponCurrentPity ?? 0
+                const weaponGuaranteed = res.weaponIsGuaranteed ?? false
+                const weaponFP = 0
+                const weaponPullItemCount = game.weaponPullItem
+                  ? (res.weaponPullItems ?? 0) + projected.weaponPullItems
+                  : charPullItems
+                const totalWeaponPulls = weaponPullItemCount + currencyPulls
+
+                prob = computeCombinedProbability(
+                  card.gameId,
+                  currentPity, totalPulls, isGuaranteed,
+                  weaponPity, totalWeaponPulls, weaponGuaranteed, weaponFP
+                )
+              } else {
+                prob = computeCharacterProbability(card.gameId, currentPity, totalPulls, isGuaranteed)
+              }
             }
           }
 
@@ -302,12 +319,36 @@ export function Dashboard() {
                 <div>
                   <div
                     style={{
-                      fontSize: 15,
-                      fontWeight: 600,
-                      color: hasCharacter ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground))",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
                     }}
                   >
-                    {hasCharacter ? card.entry!.characterName : "Unregistered"}
+                    <span
+                      style={{
+                        fontSize: 15,
+                        fontWeight: 600,
+                        color: hasCharacter ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground))",
+                      }}
+                    >
+                      {hasCharacter ? card.entry!.characterName : "Unregistered"}
+                    </span>
+                    {isPullingWeapon && (
+                      <span
+                        style={{
+                          fontSize: 9,
+                          fontWeight: 600,
+                          padding: "2px 6px",
+                          borderRadius: 4,
+                          background: accentBg(0.15),
+                          color: accent,
+                          letterSpacing: "0.3px",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        + Weapon
+                      </span>
+                    )}
                   </div>
                   <div
                     style={{
