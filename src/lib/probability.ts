@@ -310,6 +310,53 @@ export function computeCombinedProbability(
 }
 
 /**
+ * Probability of getting a specific rate-up item in a spark system.
+ *
+ * Uma uses flat 3% base rate with no soft pity escalation.
+ * Spark at 200 pulls guarantees the featured item.
+ * No 50/50 system; rate-up share varies per banner (manual input).
+ *
+ * @param baseRate - per-pull chance of any top-rarity hit (0.03 for Uma)
+ * @param rateUpShare - fraction of top-rarity hits that are the featured item (e.g., 0.5)
+ * @param availablePulls - total pulls the player can make
+ * @param sparkThreshold - pulls needed for spark (200 for Uma, 0 = no spark)
+ * @param currentSparkCount - pulls already accumulated toward spark on this banner
+ */
+export function probabilityWithSpark(
+  baseRate: number,
+  rateUpShare: number,
+  availablePulls: number,
+  sparkThreshold: number,
+  currentSparkCount: number = 0
+): number {
+  if (availablePulls <= 0) return 0
+
+  const pullsToSpark = sparkThreshold > 0 ? sparkThreshold - currentSparkCount : Infinity
+  const effectiveRate = baseRate * rateUpShare
+
+  // If we can reach spark, guaranteed
+  if (availablePulls >= pullsToSpark) return 1.0
+
+  // Otherwise, probability of hitting at least once in N pulls
+  const pNoHit = Math.pow(1 - effectiveRate, availablePulls)
+  return 1 - pNoHit
+}
+
+/**
+ * Compute probability for Uma-style gacha (flat rate, spark, no 50/50).
+ */
+export function computeSparkProbability(
+  availablePulls: number,
+  baseRate: number,
+  rateUpShare: number,
+  sparkThreshold: number,
+  currentSparkCount: number = 0
+): ProbabilityResult {
+  const prob = probabilityWithSpark(baseRate, rateUpShare, availablePulls, sparkThreshold, currentSparkCount)
+  return toResult(prob, availablePulls)
+}
+
+/**
  * Legacy wrapper - computes character-only probability.
  */
 export function computeProbability(

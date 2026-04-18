@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useMemo } from "react"
 import { GAMES, type GameId } from "@/lib/games"
 import { db, type TimelineEntry, type ResourceSnapshot } from "@/lib/db"
-import { computeCharacterProbability, computeCombinedProbability, type ProbabilityResult } from "@/lib/probability"
+import { computeCharacterProbability, computeCombinedProbability, computeSparkProbability, type ProbabilityResult } from "@/lib/probability"
 import { projectIncomeUntil } from "@/lib/daily-income"
+import { DatePicker } from "@/components/ui/date-picker"
 
 interface NodeEditorProps {
   gameId: GameId
@@ -11,6 +12,8 @@ interface NodeEditorProps {
   date: Date
   onClose: () => void
   onSave: () => void
+  /** When true, the editor is in "create" mode: version is auto-generated, date is editable */
+  isCreateMode?: boolean
 }
 
 const VALUE_TIERS = [
@@ -132,10 +135,11 @@ function ProbRow({ label, result, pulls, formula }: {
   )
 }
 
-export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: NodeEditorProps) {
+export function NodeEditor({ gameId, version, phase, date: initialDate, onClose, onSave, isCreateMode }: NodeEditorProps) {
   const game = GAMES[gameId]
   const panelRef = useRef<HTMLDivElement>(null)
 
+  const [date, setDate] = useState(initialDate)
   const [characterName, setCharacterName] = useState("")
   const [valueTier, setValueTier] = useState<TimelineEntry["valueTier"]>("limited")
   const [isSpeculation, setIsSpeculation] = useState(false)
@@ -143,6 +147,11 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
   const [pullingWeapon, setPullingWeapon] = useState(false)
   const [pullStatus, setPullStatus] = useState<TimelineEntry["pullStatus"]>("none")
   const [existingId, setExistingId] = useState<number | null>(null)
+  const [bannerLane, setBannerLane] = useState<"character" | "support">("character")
+  const [rateUpPercent, setRateUpPercent] = useState(50)
+  const [sparkCount, setSparkCount] = useState(0)
+  const [dupeCount, setDupeCount] = useState(0)
+  const [bannerDurationDays, setBannerDurationDays] = useState(14)
   const [portraitPreview, setPortraitPreview] = useState<string | null>(null)
   const [portraitBlob, setPortraitBlob] = useState<Blob | null>(null)
   const [resource, setResource] = useState<ResourceSnapshot | null>(null)
@@ -150,7 +159,8 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
   // Load existing entry + resource snapshot
   useEffect(() => {
     async function load() {
-      const entry = await db.timeline
+      // In create mode, skip loading existing entry
+      const entry = isCreateMode ? null : await db.timeline
         .where({ gameId, version })
         .filter((e) => e.phase === phase)
         .first()
@@ -163,6 +173,11 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
         setPullingWeapon(entry.pullingWeapon ?? false)
         setPullStatus(entry.pullStatus ?? "none")
         setExistingId(entry.id ?? null)
+        setBannerLane(entry.bannerLane ?? "character")
+        setRateUpPercent(entry.rateUpPercent ?? 50)
+        setSparkCount(entry.sparkCount ?? 0)
+        setDupeCount(entry.dupeCount ?? 0)
+        setBannerDurationDays(entry.bannerDurationDays ?? 14)
         if (entry.characterPortrait) {
           setPortraitPreview(URL.createObjectURL(entry.characterPortrait))
           setPortraitBlob(entry.characterPortrait)
@@ -250,9 +265,12 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
   }
 
   const handleSave = async () => {
+    const isUma = gameId === "uma"
+    // In create mode, generate a unique version from timestamp
+    const effectiveVersion = isCreateMode ? `uma-${Date.now()}` : version
     const entry: Omit<TimelineEntry, "id"> = {
       gameId,
-      version,
+      version: effectiveVersion,
       phase,
       startDate: date.toISOString(),
       characterName: characterName.trim() || null,
@@ -262,6 +280,13 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
       isPriority,
       pullStatus,
       pullingWeapon,
+      ...(isUma && {
+        bannerLane,
+        rateUpPercent,
+        sparkCount,
+        dupeCount,
+        bannerDurationDays,
+      }),
     }
 
     if (existingId) {
@@ -288,6 +313,8 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
     setPortraitPreview(null)
   }
 
+  const isUma = gameId === "uma"
+
   // Compute probabilities from current resource snapshot
   const probabilities = useMemo(() => {
     if (!resource) return null
@@ -298,6 +325,36 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
     const paidCurrency = resource.paidCurrency ?? 0
     const totalCurrency = (resource.currency ?? 0) + paidCurrency + projected.currency
     const currencyPulls = Math.floor(totalCurrency / config.currencyPerPull)
+
+    if (isUma) {
+      // Uma: tickets + currency pulls, spark system
+      const tickets = bannerLane === "support"
+        ? (resource.secondaryPullItems ?? 0)
+        : (resource.pullItems ?? 0)
+      const totalPulls = tickets + currencyPulls
+      const currentSpark = bannerLane === "support"
+        ? (resource.supportSparkCount ?? 0)
+        : (resource.charSparkCount ?? 0)
+      const rateUpShare = rateUpPercent / 100
+
+      if (totalPulls <= 0) return null
+
+      const sparkProb = computeSparkProbability(
+        totalPulls, config.baseRate5Star, rateUpShare,
+        config.sparkThreshold, currentSpark
+      )
+
+      return {
+        charOnly: sparkProb,
+        combined: sparkProb,
+        totalCharPulls: totalPulls,
+        totalWeaponPulls: 0,
+        currentPity: currentSpark,
+        isGuaranteed: false,
+        weaponPity: 0,
+        weaponGuaranteed: false,
+      }
+    }
 
     const charPullItems = (resource.pullItems ?? 0) + projected.pullItems
     const totalCharPulls = charPullItems + currencyPulls
@@ -332,7 +389,7 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
       weaponPity,
       weaponGuaranteed,
     }
-  }, [resource, gameId, date])
+  }, [resource, gameId, date, isUma, bannerLane, rateUpPercent])
 
   const accentColor = `hsl(var(${game.accentVar}))`
   const accentBg = (opacity: number) => `hsla(var(${game.accentVar}) / ${opacity})`
@@ -443,23 +500,37 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
                   color: accentColor,
                 }}
               >
-                {game.shortName} // {version} {phase === 1 ? "PH1" : "PH2"}
+                {isCreateMode
+                  ? `${game.shortName} // NEW BANNER`
+                  : game.hasPatchCycle
+                    ? `${game.shortName} // ${version} ${phase === 1 ? "PH1" : "PH2"}`
+                    : `${game.shortName} // ${characterName || "EDIT BANNER"}`}
               </div>
-              <div
-                style={{
-                  fontSize: 10,
-                  fontFamily: MONO,
-                  color: "hsla(0,0%,100%,0.35)",
-                  marginTop: 4,
-                }}
-              >
-                {date.toLocaleDateString("en-US", {
-                  weekday: "short",
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                })}
-              </div>
+              {(isCreateMode || !game.hasPatchCycle) ? (
+                <div style={{ marginTop: 4 }}>
+                  <DatePicker
+                    value={date}
+                    onChange={setDate}
+                    accentVar={game.accentVar}
+                  />
+                </div>
+              ) : (
+                <div
+                  style={{
+                    fontSize: 10,
+                    fontFamily: MONO,
+                    color: "hsla(0,0%,100%,0.35)",
+                    marginTop: 4,
+                  }}
+                >
+                  {date.toLocaleDateString("en-US", {
+                    weekday: "short",
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                </div>
+              )}
             </div>
             <button
               onClick={onClose}
@@ -506,6 +577,115 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
               }}
             />
           </div>
+
+          {/* Uma: Banner type + Rate-up + Spark */}
+          {isUma && (
+            <div style={{ display: "flex", gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                <SectionLabel>Banner Type</SectionLabel>
+                <div style={{ display: "flex", gap: 5 }}>
+                  {(["character", "support"] as const).map((lane) => {
+                    const active = bannerLane === lane
+                    return (
+                      <button
+                        key={lane}
+                        onClick={() => setBannerLane(lane)}
+                        style={{
+                          flex: 1,
+                          padding: "6px 8px",
+                          borderRadius: 3,
+                          fontSize: 10,
+                          fontWeight: 600,
+                          fontFamily: MONO,
+                          border: `1px solid ${active ? accentBg(0.4) : "hsla(0,0%,100%,0.06)"}`,
+                          background: active ? accentBg(0.15) : "hsla(0,0%,100%,0.02)",
+                          color: active ? accentColor : "hsla(0,0%,100%,0.35)",
+                          cursor: "pointer",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.5px",
+                        }}
+                      >
+                        {lane === "character" ? "Umamusume" : "Support"}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+              <div style={{ width: 80 }}>
+                <SectionLabel>Rate-Up %</SectionLabel>
+                <input
+                  type="number"
+                  value={rateUpPercent}
+                  onChange={(e) => setRateUpPercent(Math.max(1, Math.min(100, parseInt(e.target.value) || 0)))}
+                  style={{
+                    width: "100%",
+                    padding: "6px 8px",
+                    borderRadius: 3,
+                    fontSize: 12,
+                    fontFamily: MONO,
+                    background: "hsla(0,0%,100%,0.04)",
+                    border: "1px solid hsla(0,0%,100%,0.08)",
+                    outline: "none",
+                    color: "hsl(var(--foreground))",
+                    textAlign: "center",
+                  }}
+                />
+              </div>
+              <div style={{ width: 80 }}>
+                <SectionLabel>Spark</SectionLabel>
+                <input
+                  type="number"
+                  value={sparkCount}
+                  onChange={(e) => setSparkCount(Math.max(0, Math.min(game.sparkThreshold, parseInt(e.target.value) || 0)))}
+                  style={{
+                    width: "100%",
+                    padding: "6px 8px",
+                    borderRadius: 3,
+                    fontSize: 12,
+                    fontFamily: MONO,
+                    background: "hsla(0,0%,100%,0.04)",
+                    border: "1px solid hsla(0,0%,100%,0.08)",
+                    outline: "none",
+                    color: "hsl(var(--foreground))",
+                    textAlign: "center",
+                  }}
+                  placeholder={`/ ${game.sparkThreshold}`}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Uma: Support card dupe count */}
+          {isUma && bannerLane === "support" && (
+            <div>
+              <SectionLabel>Dupe Count (Limit Break)</SectionLabel>
+              <div style={{ display: "flex", gap: 5 }}>
+                {[0, 1, 2, 3, 4, 5].map((count) => {
+                  const active = dupeCount === count
+                  return (
+                    <button
+                      key={count}
+                      onClick={() => setDupeCount(count)}
+                      style={{
+                        width: 32,
+                        height: 28,
+                        borderRadius: 3,
+                        fontSize: 11,
+                        fontWeight: 600,
+                        fontFamily: MONO,
+                        border: `1px solid ${active ? accentBg(0.4) : "hsla(0,0%,100%,0.06)"}`,
+                        background: active ? accentBg(0.15) : "hsla(0,0%,100%,0.02)",
+                        color: active ? accentColor : "hsla(0,0%,100%,0.35)",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {count}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Value tier + Portrait row */}
           <div style={{ display: "flex", gap: 16 }}>
@@ -671,41 +851,63 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
               }}
             >
               <SectionLabel>Probability</SectionLabel>
-              <ProbRow
-                label="Character only"
-                result={probabilities.charOnly}
-                pulls={probabilities.totalCharPulls}
-                formula={[
-                  `Pity: ${probabilities.currentPity}/${game.pity5Star}`,
-                  `Status: ${probabilities.isGuaranteed ? "Guaranteed" : "50/50"}`,
-                  `Soft pity: pull ${game.softPityStart}+`,
-                  ``,
-                  `P = 1 - \u220F(1 - r\u1D62) over ${probabilities.totalCharPulls} pulls`,
-                  `r\u1D62 = ${(game.baseRate5Star * 100).toFixed(1)}% before soft pity`,
-                  `r\u1D62 = base + 6% per pull after ${game.softPityStart}`,
-                  ``,
-                  probabilities.isGuaranteed
-                    ? `Guaranteed: next 5-star is featured`
-                    : `50/50: P(featured) = \u2211 P(hit at k) \u00D7 (0.5 + 0.5 \u00D7 P(2nd hit))`,
-                ].join("\n")}
-              />
-              <ProbRow
-                label="Char + Weapon"
-                result={probabilities.combined}
-                pulls={probabilities.totalCharPulls}
-                formula={[
-                  `P(both) = P(character) \u00D7 P(weapon)`,
-                  ``,
-                  `Character: ${probabilities.charOnly.percent}%`,
-                  `Weapon: ${probabilities.totalWeaponPulls} pulls, pity ${probabilities.weaponPity}/${game.weaponPity}`,
-                  ``,
-                  game.weaponGuaranteed
-                    ? `Weapon banner: always guaranteed`
-                    : probabilities.weaponGuaranteed
-                      ? `Next 5-star weapon is guaranteed`
-                      : `50/50 system. Lose once, next is guaranteed.`,
-                ].join("\n")}
-              />
+              {isUma ? (
+                <ProbRow
+                  label={bannerLane === "support" ? "Support Card" : "Umamusume"}
+                  result={probabilities.charOnly}
+                  pulls={probabilities.totalCharPulls}
+                  formula={[
+                    `Base rate: ${(game.baseRate5Star * 100).toFixed(0)}%`,
+                    `Rate-up share: ${rateUpPercent}%`,
+                    `Effective rate: ${(game.baseRate5Star * rateUpPercent).toFixed(1)}%`,
+                    `Spark: ${probabilities.currentPity}/${game.sparkThreshold}`,
+                    ``,
+                    `P = 1 - (1 - ${(game.baseRate5Star * rateUpPercent / 100).toFixed(4)})^${probabilities.totalCharPulls}`,
+                    ``,
+                    probabilities.totalCharPulls >= (game.sparkThreshold - probabilities.currentPity)
+                      ? `Can reach spark: GUARANTEED`
+                      : `${game.sparkThreshold - probabilities.currentPity - probabilities.totalCharPulls} pulls short of spark`,
+                  ].join("\n")}
+                />
+              ) : (
+                <>
+                  <ProbRow
+                    label="Character only"
+                    result={probabilities.charOnly}
+                    pulls={probabilities.totalCharPulls}
+                    formula={[
+                      `Pity: ${probabilities.currentPity}/${game.pity5Star}`,
+                      `Status: ${probabilities.isGuaranteed ? "Guaranteed" : "50/50"}`,
+                      `Soft pity: pull ${game.softPityStart}+`,
+                      ``,
+                      `P = 1 - \u220F(1 - r\u1D62) over ${probabilities.totalCharPulls} pulls`,
+                      `r\u1D62 = ${(game.baseRate5Star * 100).toFixed(1)}% before soft pity`,
+                      `r\u1D62 = base + 6% per pull after ${game.softPityStart}`,
+                      ``,
+                      probabilities.isGuaranteed
+                        ? `Guaranteed: next 5-star is featured`
+                        : `50/50: P(featured) = \u2211 P(hit at k) \u00D7 (0.5 + 0.5 \u00D7 P(2nd hit))`,
+                    ].join("\n")}
+                  />
+                  <ProbRow
+                    label="Char + Weapon"
+                    result={probabilities.combined}
+                    pulls={probabilities.totalCharPulls}
+                    formula={[
+                      `P(both) = P(character) \u00D7 P(weapon)`,
+                      ``,
+                      `Character: ${probabilities.charOnly.percent}%`,
+                      `Weapon: ${probabilities.totalWeaponPulls} pulls, pity ${probabilities.weaponPity}/${game.weaponPity}`,
+                      ``,
+                      game.weaponGuaranteed
+                        ? `Weapon banner: always guaranteed`
+                        : probabilities.weaponGuaranteed
+                          ? `Next 5-star weapon is guaranteed`
+                          : `50/50 system. Lose once, next is guaranteed.`,
+                    ].join("\n")}
+                  />
+                </>
+              )}
             </div>
           )}
 
@@ -722,11 +924,13 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
               onToggle={() => setIsPriority(!isPriority)}
               label="Mark as priority (must pull)"
             />
-            <Toggle
-              active={pullingWeapon}
-              onToggle={() => setPullingWeapon(!pullingWeapon)}
-              label="Pulling weapon too"
-            />
+            {!isUma && (
+              <Toggle
+                active={pullingWeapon}
+                onToggle={() => setPullingWeapon(!pullingWeapon)}
+                label="Pulling weapon too"
+              />
+            )}
           </div>
         </div>
 

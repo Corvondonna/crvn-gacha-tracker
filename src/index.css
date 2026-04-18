@@ -27,6 +27,7 @@
   --hsr: 345 60% 45%;
   --zzz: 28 85% 58%;
   --wuwa: 250 70% 65%;
+  --uma: 145 55% 48%;
 
   /* Glass effect tokens */
   --glass-bg: 0 0% 10%;
@@ -91,6 +92,9 @@ body {
 .glow-wuwa {
   box-shadow: 0 0 var(--glow-spread) hsla(var(--wuwa) / var(--glow-intensity));
 }
+.glow-uma {
+  box-shadow: 0 0 var(--glow-spread) hsla(var(--uma) / var(--glow-intensity));
+}
 
 /* Neon text glow per game */
 .neon-genshin {
@@ -109,6 +113,10 @@ body {
   color: hsl(var(--wuwa));
   text-shadow: 0 0 8px hsla(var(--wuwa) / 0.5);
 }
+.neon-uma {
+  color: hsl(var(--uma));
+  text-shadow: 0 0 8px hsla(var(--uma) / 0.5);
+}
 
 /* Glowing border on hover */
 .glow-border-genshin:hover {
@@ -126,6 +134,10 @@ body {
 .glow-border-wuwa:hover {
   border-color: hsla(var(--wuwa) / 0.5);
   box-shadow: 0 0 12px hsla(var(--wuwa) / 0.2), inset 0 0 12px hsla(var(--wuwa) / 0.05);
+}
+.glow-border-uma:hover {
+  border-color: hsla(var(--uma) / 0.5);
+  box-shadow: 0 0 12px hsla(var(--uma) / 0.2), inset 0 0 12px hsla(var(--uma) / 0.05);
 }
 
 /* Priority node animated ring */
@@ -207,6 +219,18 @@ body {
 
 .animate-fade-in {
   animation: fade-in 0.4s ease both;
+}
+
+/* Date picker entrance */
+@keyframes datepicker-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Custom scrollbar */

@@ -32,6 +32,7 @@ const GAME_BANNERS: Record<GameId, BannerFilter[]> = {
   hsr: ["all", "character", "lightcone", "standard"],
   zzz: ["all", "character", "wengine", "bangboo", "standard"],
   wuwa: ["all", "character", "weapon", "standard"],
+  uma: ["all", "character", "standard"],
 }
 
 const GAME_BANNER_CARDS: Record<GameId, BannerFilter[]> = {
@@ -39,6 +40,7 @@ const GAME_BANNER_CARDS: Record<GameId, BannerFilter[]> = {
   hsr: ["character", "lightcone", "standard"],
   zzz: ["character", "wengine", "standard"],
   wuwa: ["character", "weapon", "standard"],
+  uma: ["character", "standard"],
 }
 
 function rarityColor(rarity: number): string {

@@ -27,6 +27,16 @@ export interface TimelineEntry {
   isPriority: boolean
   pullStatus: "none" | "secured" | "failed"
   pullingWeapon: boolean
+  /** Sub-lane for games with multiple banner types (Uma: "character" | "support") */
+  bannerLane?: "character" | "support"
+  /** Banner duration in days (for games without fixed patch cycles, e.g., Uma) */
+  bannerDurationDays?: number
+  /** Rate-up percentage for this specific banner (Uma: varies per banner) */
+  rateUpPercent?: number
+  /** Current spark counter for this banner target */
+  sparkCount?: number
+  /** Support card dupe count (Uma: 0-5 for limit breaking) */
+  dupeCount?: number
 }
 
 export interface ResourceSnapshot {
@@ -46,6 +56,12 @@ export interface ResourceSnapshot {
   monthlyPassActive: boolean
   monthlyPassExpiry: string | null
   dailyCommissionsActive: boolean
+  /** Secondary pull items (Uma: Support Card Scout Tickets) */
+  secondaryPullItems?: number
+  /** Character banner spark counter (Uma) */
+  charSparkCount?: number
+  /** Support card banner spark counter (Uma) */
+  supportSparkCount?: number
 }
 
 export interface CharacterRegistration {
@@ -160,6 +176,27 @@ db.version(7).stores({
 }).upgrade(tx => {
   return tx.table("resources").toCollection().modify(entry => {
     if (entry.weaponPullItems === undefined) entry.weaponPullItems = 0
+  })
+})
+
+db.version(8).stores({
+  pulls: "++id, gameId, bannerType, timestamp, rarity",
+  timeline: "++id, gameId, version, startDate, bannerLane",
+  resources: "++id, gameId, updatedAt",
+  characters: "++id, gameId, displayName, internalId",
+  combatClaims: "++id, modeId, resetDate",
+}).upgrade(tx => {
+  tx.table("timeline").toCollection().modify(entry => {
+    if (entry.bannerLane === undefined) entry.bannerLane = undefined
+    if (entry.bannerDurationDays === undefined) entry.bannerDurationDays = undefined
+    if (entry.rateUpPercent === undefined) entry.rateUpPercent = undefined
+    if (entry.sparkCount === undefined) entry.sparkCount = undefined
+    if (entry.dupeCount === undefined) entry.dupeCount = undefined
+  })
+  tx.table("resources").toCollection().modify(entry => {
+    if (entry.secondaryPullItems === undefined) entry.secondaryPullItems = 0
+    if (entry.charSparkCount === undefined) entry.charSparkCount = 0
+    if (entry.supportSparkCount === undefined) entry.supportSparkCount = 0
   })
 })
 

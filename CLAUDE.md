@@ -29,13 +29,13 @@ Estimated release schedules for characters, patches, events, and other notable m
 - Day 42 (Thursday): Next patch begins
 
 **Reference anchor dates (verified):**
-- Genshin 6.5: Apr 8, 2026 (Wed). Skips 6.9, proceeds to 7.0.
+- Genshin 6.5: Apr 8, 2026 (Wed). Skips 6.8 and 6.9, proceeds from 6.7 to 7.0. 7.0 starts Aug 12, 2026.
 - HSR 4.2: Apr 22, 2026 (Wed). Phase 2: May 12. Livestream: May 22.
 - ZZZ 2.7: Mar 25, 2026 (Wed). Skips 2.9, proceeds to 3.0.
 - WuWa 3.2: Mar 19, 2026 (Thu). Phase 2: Apr 9. Livestream for 3.3: Apr 17.
 - WuWa 3.3: Apr 30, 2026 (Thu). Phase 2: May 21 (predicted).
 
-**Version skip logic:** Genshin skips x.9 (e.g., 6.9 -> 7.0). ZZZ skips x.9 (e.g., 2.9 -> 3.0). HSR and WuWa have no known version skips. Implemented in `src/lib/timeline.ts` via VERSION_SKIPS map.
+**Version skip logic:** Genshin skips 6.8 and 6.9 (6.7 -> 7.0), and generally skips x.9. ZZZ skips x.9 (e.g., 2.9 -> 3.0). HSR and WuWa have no known version skips. Implemented in `src/lib/timeline.ts` via VERSION_SKIPS map.
 
 **Manual data per patch:** Character names, weapon names, and event details for each phase must be entered manually or sourced from community leaks/announcements. The cycle math only generates dates.
 

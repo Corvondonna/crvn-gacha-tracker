@@ -18,6 +18,8 @@ export interface TimelineNode {
   label: string
   characterName: string | null
   isSpeculation: boolean
+  /** Sub-lane for games with multiple banner types (e.g., Uma character vs support) */
+  bannerLane?: "character" | "support"
 }
 
 /**
@@ -57,7 +59,7 @@ export function calculatePatchDates(
  * Example: ZZZ skips 2.9, so after 2.8 it jumps to 3.0.
  */
 const VERSION_SKIPS: Partial<Record<GameId, Set<string>>> = {
-  genshin: new Set(["6.9"]),
+  genshin: new Set(["6.8", "6.9"]),
   hsr: new Set(["3.9"]),
   zzz: new Set(["2.9"]),
 }

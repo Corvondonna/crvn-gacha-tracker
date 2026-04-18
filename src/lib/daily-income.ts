@@ -4,21 +4,20 @@ import { COMBAT_MODES, getCombatModeResets } from "@/data/combat-modes"
 
 /**
  * Calculates the number of full days between two dates,
- * using a 4:00 AM reset boundary (like in-game daily resets).
+ * using a game-specific reset boundary.
  *
- * A "day" ticks over at 4:00 AM local time.
- * If lastUpdate was 3:59 AM Apr 15 and now is 4:01 AM Apr 15, that's 1 day.
- * If lastUpdate was 4:01 AM Apr 15 and now is 3:59 AM Apr 16, that's 0 days.
+ * HoYoverse/WuWa: 4:00 AM local time
+ * Umamusume: 11:00 PM (23:00) PH time
+ *
+ * A "day" ticks over at the reset hour.
  */
-function daysSinceLastUpdate(lastUpdate: Date, now: Date): number {
-  const RESET_HOUR = 4
-
-  // Shift both dates back by RESET_HOUR so the day boundary aligns with midnight
+function daysSinceLastUpdate(lastUpdate: Date, now: Date, resetHour: number = 4): number {
+  // Shift both dates back by resetHour so the day boundary aligns with midnight
   const shiftedLast = new Date(lastUpdate)
-  shiftedLast.setHours(shiftedLast.getHours() - RESET_HOUR)
+  shiftedLast.setHours(shiftedLast.getHours() - resetHour)
 
   const shiftedNow = new Date(now)
-  shiftedNow.setHours(shiftedNow.getHours() - RESET_HOUR)
+  shiftedNow.setHours(shiftedNow.getHours() - resetHour)
 
   // Get calendar day difference
   const lastDay = new Date(shiftedLast.getFullYear(), shiftedLast.getMonth(), shiftedLast.getDate())
@@ -206,8 +205,10 @@ export async function accumulateDailyIncome(): Promise<IncomeAccumulation[]> {
     const latest = snapshots[snapshots.length - 1]
     if (!latest) continue
 
+    const config = GAMES[gameId]
+    const resetHour = config.dailyResetHour
     const lastUpdate = new Date(latest.updatedAt)
-    const days = daysSinceLastUpdate(lastUpdate, now)
+    const days = daysSinceLastUpdate(lastUpdate, now, resetHour)
 
     if (days <= 0) continue
 
@@ -221,13 +222,10 @@ export async function accumulateDailyIncome(): Promise<IncomeAccumulation[]> {
       const expiry = new Date(latest.monthlyPassExpiry)
       if (expiry < now) {
         // Pass expired during the gap. Calculate how many days it was still active.
-        const welkinActiveDays = Math.max(0, daysSinceLastUpdate(lastUpdate, expiry))
+        const welkinActiveDays = Math.max(0, daysSinceLastUpdate(lastUpdate, expiry, resetHour))
         welkinDays = welkinActiveDays
       }
     }
-
-    // Calculate total income
-    const config = GAMES[gameId]
     let totalIncome = 0
 
     if (latest.dailyCommissionsActive) {

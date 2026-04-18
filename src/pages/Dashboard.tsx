@@ -3,7 +3,7 @@ import { GAMES, GAME_IDS, type GameId } from "@/lib/games"
 import { db, type TimelineEntry, type ResourceSnapshot } from "@/lib/db"
 import { generatePatchSeries, patchesToNodes, type TimelineNode } from "@/lib/timeline"
 import { PATCH_ANCHORS } from "@/data/patch-anchors"
-import { computeCharacterProbability, computeCombinedProbability, type ProbabilityResult } from "@/lib/probability"
+import { computeCharacterProbability, computeCombinedProbability, computeSparkProbability, type ProbabilityResult } from "@/lib/probability"
 import { projectIncomeUntil } from "@/lib/daily-income"
 
 function probTierColor(tier: ProbabilityResult["tier"]): string {
@@ -130,6 +130,34 @@ export function Dashboard() {
       }
     }
 
+    // Uma: find next target from timeline entries directly (no patch cycle)
+    const umaEntries = entries
+      .filter((e) => e.gameId === "uma" && e.characterName)
+      .filter((e) => new Date(e.startDate) >= now)
+      .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
+
+    const umaTarget = umaEntries[0]
+    if (umaTarget) {
+      cards.push({
+        gameId: "uma",
+        version: umaTarget.version,
+        phase: umaTarget.phase,
+        date: new Date(umaTarget.startDate),
+        entry: umaTarget,
+        resource: resources.get("uma") ?? null,
+      })
+    } else {
+      // Show placeholder card for Uma even with no targets
+      cards.push({
+        gameId: "uma",
+        version: "-",
+        phase: 1,
+        date: now,
+        entry: null,
+        resource: resources.get("uma") ?? null,
+      })
+    }
+
     return { cards, patchStartMap }
   }, [entries, resources])
 
@@ -155,13 +183,13 @@ export function Dashboard() {
           animationDelay: "0.05s",
         }}
       >
-        Personal gacha tracker across four games.
+        Personal gacha tracker across five games.
       </p>
 
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
+          gridTemplateColumns: "repeat(5, 1fr)",
           gap: 16,
         }}
       >
@@ -177,6 +205,8 @@ export function Dashboard() {
           let totalPulls = 0
           let prob: ProbabilityResult | null = null
           const isPullingWeapon = card.entry?.pullingWeapon ?? false
+          const isUma = card.gameId === "uma"
+          const umaBannerLane = card.entry?.bannerLane
 
           if (card.resource) {
             const res = card.resource
@@ -184,28 +214,48 @@ export function Dashboard() {
             const paidCurrency = res.paidCurrency ?? 0
             const totalCurrency = (res.currency ?? 0) + paidCurrency + projected.currency
             const currencyPulls = Math.floor(totalCurrency / game.currencyPerPull)
-            const charPullItems = (res.pullItems ?? 0) + projected.pullItems
-            totalPulls = charPullItems + currencyPulls
-            const currentPity = res.currentPity ?? 0
-            const isGuaranteed = res.isGuaranteed ?? false
 
-            if (totalPulls > 0 || currentPity > 0) {
-              if (isPullingWeapon) {
-                const weaponPity = res.weaponCurrentPity ?? 0
-                const weaponGuaranteed = res.weaponIsGuaranteed ?? false
-                const weaponFP = 0
-                const weaponPullItemCount = game.weaponPullItem
-                  ? (res.weaponPullItems ?? 0) + projected.weaponPullItems
-                  : charPullItems
-                const totalWeaponPulls = weaponPullItemCount + currencyPulls
+            if (isUma) {
+              // Uma: tickets + currency pulls
+              const tickets = umaBannerLane === "support"
+                ? (res.secondaryPullItems ?? 0)
+                : (res.pullItems ?? 0)
+              totalPulls = tickets + currencyPulls
+              const sparkCount = umaBannerLane === "support"
+                ? (res.supportSparkCount ?? 0)
+                : (res.charSparkCount ?? 0)
+              const rateUpShare = card.entry?.rateUpPercent ? card.entry.rateUpPercent / 100 : 0.5
 
-                prob = computeCombinedProbability(
-                  card.gameId,
-                  currentPity, totalPulls, isGuaranteed,
-                  weaponPity, totalWeaponPulls, weaponGuaranteed, weaponFP
+              if (totalPulls > 0) {
+                prob = computeSparkProbability(
+                  totalPulls, game.baseRate5Star, rateUpShare,
+                  game.sparkThreshold, sparkCount
                 )
-              } else {
-                prob = computeCharacterProbability(card.gameId, currentPity, totalPulls, isGuaranteed)
+              }
+            } else {
+              const charPullItems = (res.pullItems ?? 0) + projected.pullItems
+              totalPulls = charPullItems + currencyPulls
+              const currentPity = res.currentPity ?? 0
+              const isGuaranteed = res.isGuaranteed ?? false
+
+              if (totalPulls > 0 || currentPity > 0) {
+                if (isPullingWeapon) {
+                  const weaponPity = res.weaponCurrentPity ?? 0
+                  const weaponGuaranteed = res.weaponIsGuaranteed ?? false
+                  const weaponFP = 0
+                  const weaponPullItemCount = game.weaponPullItem
+                    ? (res.weaponPullItems ?? 0) + projected.weaponPullItems
+                    : charPullItems
+                  const totalWeaponPulls = weaponPullItemCount + currencyPulls
+
+                  prob = computeCombinedProbability(
+                    card.gameId,
+                    currentPity, totalPulls, isGuaranteed,
+                    weaponPity, totalWeaponPulls, weaponGuaranteed, weaponFP
+                  )
+                } else {
+                  prob = computeCharacterProbability(card.gameId, currentPity, totalPulls, isGuaranteed)
+                }
               }
             }
           }
@@ -349,6 +399,23 @@ export function Dashboard() {
                         + Weapon
                       </span>
                     )}
+                    {isUma && umaBannerLane && (
+                      <span
+                        style={{
+                          fontSize: 9,
+                          fontWeight: 600,
+                          padding: "2px 6px",
+                          borderRadius: 4,
+                          background: accentBg(0.15),
+                          color: accent,
+                          letterSpacing: "0.3px",
+                          whiteSpace: "nowrap",
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        {umaBannerLane === "support" ? "SUPPORT" : "UMA"}
+                      </span>
+                    )}
                   </div>
                   <div
                     style={{
@@ -357,7 +424,7 @@ export function Dashboard() {
                       marginTop: 5,
                     }}
                   >
-                    {card.version} Phase {card.phase}
+                    {isUma ? (card.entry?.characterName ?? "No target") : `${card.version} Phase ${card.phase}`}
                     {" \u00B7 "}
                     {card.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                   </div>

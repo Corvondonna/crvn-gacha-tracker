@@ -6,7 +6,7 @@ export function Resources() {
   const [, setSaveCount] = useState(0)
 
   return (
-    <div style={{ padding: 24 }}>
+    <div style={{ padding: 24, height: "100%", overflowY: "auto" }}>
       <h1
         style={{
           fontSize: 20,

@@ -15,6 +15,7 @@ import { computeCharacterProbability, computeCombinedProbability, type Probabili
 import { projectIncomeUntil } from "@/lib/daily-income"
 import { COMBAT_MODES, getCombatModeResets, type CombatMode, type CombatIcon } from "@/data/combat-modes"
 import { getCombatNodesVisible, getWeeklyNodesVisible } from "@/components/layout/sidebar"
+import { UMA_SCENARIOS } from "@/data/uma-scenarios"
 import { NodeEditor } from "./node-editor"
 
 const BASE_MONTH_WIDTH = 240
@@ -54,6 +55,7 @@ interface EditorTarget {
   version: string
   phase: 1 | 2
   date: Date
+  isCreateMode?: boolean
 }
 
 /** Map from "gameId:version:phase" to saved entry data */
@@ -100,6 +102,10 @@ function getNodeSize(node: TimelineNode, entryMap: EntryMap): number {
 }
 
 function getNodeLabel(node: TimelineNode): string {
+  // For games without patch cycles, show the date instead of internal version key
+  if (!GAMES[node.gameId].hasPatchCycle) {
+    return formatDate(node.date)
+  }
   if (node.phase === 1) return node.version
   if (node.phase === 2) return "P2"
   return "LS"
@@ -257,12 +263,27 @@ function hexPoints(cx: number, cy: number, r: number): string {
 /** CSS clip-path for pointy-top hexagon (percentage-based) */
 const HEX_CLIP = "polygon(50% 0%, 93.3% 25%, 93.3% 75%, 50% 100%, 6.7% 75%, 6.7% 25%)"
 
+/** CSS clip-path for diamond (rotated square) */
+const DIAMOND_CLIP = "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)"
+
+/** SVG points for a diamond shape (rotated square) */
+function diamondPoints(cx: number, cy: number, r: number): string {
+  return `${cx},${cy - r} ${cx + r},${cy} ${cx},${cy + r} ${cx - r},${cy}`
+}
+
 /** Determine if a node should render as hexagon (limited 5-star Phase 1 only) */
 function isHexNode(node: TimelineNode, entryMap: EntryMap): boolean {
   if (node.phase !== 1) return false
+  // Uma support cards use diamond, not hex
+  if (node.bannerLane === "support") return false
   const saved = entryMap.get(entryKey(node.gameId, node.version, node.phase))
   const tier = saved?.valueTier ?? "limited"
   return tier === "limited"
+}
+
+/** Determine if a node should render as diamond (Uma support cards) */
+function isDiamondNode(node: TimelineNode): boolean {
+  return node.bannerLane === "support"
 }
 
 const MONO = "'JetBrains Mono', 'Fira Code', monospace"
@@ -294,6 +315,7 @@ function TimelineNodeDot({
   const baseHalf = baseSize / 2
   const isLivestream = node.phase === "livestream"
   const useHex = isHexNode(node, entryMap)
+  const useDiamond = isDiamondNode(node)
 
   // Apply saved data overrides
   const saved = entryMap.get(entryKey(node.gameId, node.version, node.phase))
@@ -321,10 +343,18 @@ function TimelineNodeDot({
     accentFill = `hsla(var(${game.accentVar}) / ${isSpec ? 0.06 : 0.15})`
   }
 
-  // Shape elements (hex vs circle)
+  // Shape elements (hex vs diamond vs circle)
   const ShapeOutline = useHex ? (
     <polygon
       points={hexPoints(x, y, baseHalf)}
+      fill={hasPortrait ? "transparent" : accentFill}
+      stroke={strokeColor}
+      strokeWidth={1.5}
+      strokeLinejoin="round"
+    />
+  ) : useDiamond ? (
+    <polygon
+      points={diamondPoints(x, y, baseHalf)}
       fill={hasPortrait ? "transparent" : accentFill}
       stroke={strokeColor}
       strokeWidth={1.5}
@@ -352,6 +382,16 @@ function TimelineNodeDot({
       opacity={isHovered ? 0.35 : 0.15}
       style={{ transition: "opacity 0.15s ease-out" }}
     />
+  ) : useDiamond ? (
+    <polygon
+      points={diamondPoints(x, y, baseHalf + 4)}
+      fill="none"
+      stroke={strokeColor}
+      strokeWidth={1}
+      strokeLinejoin="round"
+      opacity={isHovered ? 0.35 : 0.15}
+      style={{ transition: "opacity 0.15s ease-out" }}
+    />
   ) : (
     <circle
       cx={x}
@@ -368,6 +408,17 @@ function TimelineNodeDot({
   const PriorityRing = useHex ? (
     <polygon
       points={hexPoints(x, y, baseHalf + 6)}
+      fill="none"
+      stroke={accent}
+      strokeWidth={2}
+      strokeDasharray="8 6"
+      strokeLinejoin="round"
+      className="priority-ring"
+      opacity={0.7}
+    />
+  ) : useDiamond ? (
+    <polygon
+      points={diamondPoints(x, y, baseHalf + 6)}
       fill="none"
       stroke={accent}
       strokeWidth={2}
@@ -448,7 +499,7 @@ function TimelineNodeDot({
                 style={{
                   width: baseSize,
                   height: baseSize,
-                  clipPath: useHex ? HEX_CLIP : "circle(50%)",
+                  clipPath: useHex ? HEX_CLIP : useDiamond ? DIAMOND_CLIP : "circle(50%)",
                   overflow: "hidden",
                 }}
               >
@@ -469,6 +520,14 @@ function TimelineNodeDot({
             {useHex ? (
               <polygon
                 points={hexPoints(x, y, baseHalf)}
+                fill="none"
+                stroke={strokeColor}
+                strokeWidth={1.5}
+                strokeLinejoin="round"
+              />
+            ) : useDiamond ? (
+              <polygon
+                points={diamondPoints(x, y, baseHalf)}
                 fill="none"
                 stroke={strokeColor}
                 strokeWidth={1.5}
@@ -535,18 +594,20 @@ function TimelineNodeDot({
             fontFamily={MONO}
             fill={accent}
           >
-            {node.version}
+            {GAMES[node.gameId].hasPatchCycle ? node.version : formatDate(node.date)}
           </text>
-          <text
-            x={x}
-            y={y + baseHalf + 28}
-            textAnchor="middle"
-            fontSize={10}
-            fontFamily={MONO}
-            fill="hsl(var(--muted-foreground))"
-          >
-            {formatDate(node.date)}
-          </text>
+          {GAMES[node.gameId].hasPatchCycle && (
+            <text
+              x={x}
+              y={y + baseHalf + 28}
+              textAnchor="middle"
+              fontSize={10}
+              fontFamily={MONO}
+              fill="hsl(var(--muted-foreground))"
+            >
+              {formatDate(node.date)}
+            </text>
+          )}
         </>
       )}
 
@@ -725,16 +786,18 @@ function Tooltip({ data }: { data: TooltipData }) {
   let line1 = ""
   let line2 = ""
 
+  const versionLabel = game.hasPatchCycle ? node.version : (node.characterName ?? formatDate(node.date))
+
   if (node.phase === 1) {
-    title = `${game.shortName} // ${node.version}`
-    line1 = `PH1: ${formatFullDate(node.date)}`
+    title = `${game.shortName} // ${versionLabel}`
+    line1 = game.hasPatchCycle ? `PH1: ${formatFullDate(node.date)}` : formatFullDate(node.date)
     line2 = patch ? `PH2: ${formatFullDate(patch.phase2Start)}` : ""
   } else if (node.phase === 2) {
-    title = `${game.shortName} // ${node.version} P2`
+    title = `${game.shortName} // ${versionLabel} P2`
     line1 = `PH2: ${formatFullDate(node.date)}`
     line2 = patch ? `END: ${formatFullDate(patch.patchEnd)}` : ""
   } else {
-    title = `${node.version} // PREVIEW`
+    title = `${versionLabel} // PREVIEW`
     line1 = formatFullDate(node.date)
     line2 = game.shortName
   }
@@ -824,10 +887,10 @@ export function TimelineView() {
   const [isDragging, setIsDragging] = useState(false)
   const [editorTarget, setEditorTarget] = useState<EditorTarget | null>(null)
   const [entryMap, setEntryMap] = useState<EntryMap>(new Map())
+  const [umaEntries, setUmaEntries] = useState<TimelineEntry[]>([])
   const [dataVersion, setDataVersion] = useState(0)
   const [zoom, setZoom] = useState(1)
-  const [monthsBack, setMonthsBack] = useState(3)
-  const [monthsForward, setMonthsForward] = useState(9)
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [resourceMap, setResourceMap] = useState<Map<GameId, ResourceSnapshot>>(new Map())
   const [probMap, setProbMap] = useState<Map<string, ProbabilityResult>>(new Map())
   const [showCombat, setShowCombat] = useState(getCombatNodesVisible)
@@ -878,6 +941,7 @@ export function TimelineView() {
 
       const entries = await db.timeline.toArray()
       const map: EntryMap = new Map()
+      const umaRaw: TimelineEntry[] = []
       for (const e of entries) {
         map.set(entryKey(e.gameId, e.version, e.phase), {
           characterName: e.characterName,
@@ -888,8 +952,10 @@ export function TimelineView() {
           pullingWeapon: e.pullingWeapon ?? false,
           portraitUrl: e.characterPortrait ? URL.createObjectURL(e.characterPortrait) : null,
         })
+        if (e.gameId === "uma") umaRaw.push(e)
       }
       setEntryMap(map)
+      setUmaEntries(umaRaw)
     }
     loadEntries()
   }, [dataVersion])
@@ -1026,20 +1092,45 @@ export function TimelineView() {
   }, [zoom])
 
   const now = new Date()
-  const rangeStart = new Date(now.getFullYear(), now.getMonth() - monthsBack, 1)
-  const rangeEnd = new Date(now.getFullYear(), now.getMonth() + monthsForward, 0)
+  const rangeStart = new Date(selectedYear, 0, 1)   // Jan 1
+  const rangeEnd = new Date(selectedYear, 11, 31)    // Dec 31
+
+  // Games with sub-lanes (e.g., Uma) count as 2 rows for height calculation
+  const effectiveRowCount = useMemo(() => {
+    return GAME_IDS.reduce((count, gid) => {
+      const game = GAMES[gid]
+      return count + (game.timelineLanes ? 2 : 1)
+    }, 0)
+  }, [])
 
   const rowHeight = useMemo(() => {
     if (containerHeight <= 0) return MIN_ROW_HEIGHT
     const available = containerHeight - HEADER_HEIGHT - PADDING_BOTTOM
-    const computed = Math.floor(available / GAME_IDS.length)
+    const computed = Math.floor(available / effectiveRowCount)
     return Math.max(computed, MIN_ROW_HEIGHT)
-  }, [containerHeight])
+  }, [containerHeight, effectiveRowCount])
+
+  /** Get the Y offset of a game row's top edge */
+  const getRowTop = useCallback((gameId: GameId) => {
+    let offset = HEADER_HEIGHT
+    for (const gid of GAME_IDS) {
+      if (gid === gameId) return offset
+      const game = GAMES[gid]
+      offset += (game.timelineLanes ? 2 : 1) * rowHeight
+    }
+    return offset
+  }, [rowHeight])
+
+  /** Get the total height of a game row */
+  const getRowHeight = useCallback((gameId: GameId) => {
+    const game = GAMES[gameId]
+    return (game.timelineLanes ? 2 : 1) * rowHeight
+  }, [rowHeight])
 
   const { months, allNodes, allPatches, combatResets, patchStartMap, totalWidth, totalHeight } = useMemo(() => {
     const months = getMonthsBetween(rangeStart, rangeEnd)
     const totalWidth = months.length * monthWidth + PADDING_LEFT + PADDING_RIGHT
-    const totalHeight = HEADER_HEIGHT + GAME_IDS.length * rowHeight + PADDING_BOTTOM
+    const totalHeight = HEADER_HEIGHT + effectiveRowCount * rowHeight + PADDING_BOTTOM
 
     const allNodes: TimelineNode[] = []
     const allPatches: PatchDates[] = []
@@ -1055,6 +1146,22 @@ export function TimelineView() {
       allPatches.push(...patches)
       const nodes = patchesToNodes(patches)
       allNodes.push(...nodes)
+    }
+
+    // Generate Uma nodes from DB entries (no patch cycle)
+    for (const entry of umaEntries) {
+      const startDate = new Date(entry.startDate)
+      if (startDate < rangeStart || startDate > rangeEnd) continue
+      allNodes.push({
+        gameId: "uma",
+        version: entry.version,
+        phase: entry.phase,
+        date: startDate,
+        label: entry.characterName ?? entry.version,
+        characterName: entry.characterName,
+        isSpeculation: entry.isSpeculation,
+        bannerLane: entry.bannerLane,
+      })
     }
 
     // Build patch start dates map for patchRelative combat modes
@@ -1079,7 +1186,7 @@ export function TimelineView() {
     }
 
     return { months, allNodes, allPatches, combatResets, patchStartMap, totalWidth, totalHeight }
-  }, [rowHeight, monthWidth])
+  }, [rowHeight, monthWidth, umaEntries, effectiveRowCount])
 
   // Compute probability only for the next upcoming character per game
   useEffect(() => {
@@ -1156,13 +1263,18 @@ export function TimelineView() {
     [allPatches]
   )
 
+  // Scroll to today (if current year) or start of year on mount / year change
   useEffect(() => {
     if (scrollRef.current && containerHeight > 0) {
-      const todayX = dateToX(now, rangeStart, monthWidth)
       const containerWidth = scrollRef.current.clientWidth
-      scrollRef.current.scrollLeft = todayX - containerWidth / 3
+      if (selectedYear === now.getFullYear()) {
+        const todayX = dateToX(now, rangeStart, monthWidth)
+        scrollRef.current.scrollLeft = todayX - containerWidth / 3
+      } else {
+        scrollRef.current.scrollLeft = 0
+      }
     }
-  }, [containerHeight])
+  }, [containerHeight, selectedYear])
 
   const todayX = dateToX(now, rangeStart, monthWidth)
 
@@ -1335,8 +1447,9 @@ export function TimelineView() {
             })}
 
             {/* Patch duration bands (operational windows) */}
-            {GAME_IDS.map((gameId, rowIndex) => {
-              const rowTop = HEADER_HEIGHT + rowIndex * rowHeight
+            {GAME_IDS.map((gameId) => {
+              const rowTop = getRowTop(gameId)
+              const thisRowHeight = getRowHeight(gameId)
               const game = GAMES[gameId]
               const gamePatches = allPatches.filter(p => p.gameId === gameId)
 
@@ -1354,7 +1467,7 @@ export function TimelineView() {
                       x={x1}
                       y={rowTop + 2}
                       width={bandWidth}
-                      height={rowHeight - 4}
+                      height={thisRowHeight - 4}
                       rx={2}
                       fill={`hsla(var(${game.accentVar}) / ${isPast ? 0.008 : 0.018})`}
                     />
@@ -1369,7 +1482,7 @@ export function TimelineView() {
                           x={x1}
                           y={rowTop + 2}
                           width={Math.min(fillWidth, bandWidth)}
-                          height={rowHeight - 4}
+                          height={thisRowHeight - 4}
                           rx={2}
                           fill={`hsla(var(${game.accentVar}) / ${isPast ? 0.012 : 0.035})`}
                         />
@@ -1380,7 +1493,7 @@ export function TimelineView() {
                       x1={x1}
                       y1={rowTop + 6}
                       x2={x1}
-                      y2={rowTop + rowHeight - 6}
+                      y2={rowTop + thisRowHeight - 6}
                       stroke={`hsla(var(${game.accentVar}) / ${isPast ? 0.04 : 0.08})`}
                       strokeWidth={1}
                     />
@@ -1389,33 +1502,135 @@ export function TimelineView() {
               })
             })}
 
+            {/* Uma scenario bands */}
+            {(() => {
+              const umaRowTop = getRowTop("uma")
+              const umaRowHeight = getRowHeight("uma")
+              const umaGame = GAMES["uma"]
+              return UMA_SCENARIOS.map((scenario, si) => {
+                const x1 = dateToX(scenario.start, rangeStart, monthWidth)
+                const x2 = dateToX(scenario.end, rangeStart, monthWidth)
+                const bandWidth = x2 - x1
+                if (bandWidth <= 0) return null
+                const isPast = scenario.end < now
+                const isCurrent = scenario.start <= now && scenario.end > now
+
+                return (
+                  <g key={`uma-scenario-${si}`}>
+                    {/* Scenario background band */}
+                    <rect
+                      x={x1}
+                      y={umaRowTop + 2}
+                      width={bandWidth}
+                      height={umaRowHeight - 4}
+                      rx={2}
+                      fill={`hsla(var(${umaGame.accentVar}) / ${isPast ? 0.008 : 0.018})`}
+                    />
+                    {/* Progress fill */}
+                    {(isPast || isCurrent) && (() => {
+                      const fillWidth = isPast ? bandWidth : Math.max(0, dateToX(now, rangeStart, monthWidth) - x1)
+                      if (fillWidth <= 0) return null
+                      return (
+                        <rect
+                          x={x1}
+                          y={umaRowTop + 2}
+                          width={Math.min(fillWidth, bandWidth)}
+                          height={umaRowHeight - 4}
+                          rx={2}
+                          fill={`hsla(var(${umaGame.accentVar}) / ${isPast ? 0.012 : 0.035})`}
+                        />
+                      )
+                    })()}
+                    {/* Left edge marker */}
+                    <line
+                      x1={x1}
+                      y1={umaRowTop + 6}
+                      x2={x1}
+                      y2={umaRowTop + umaRowHeight - 6}
+                      stroke={`hsla(var(${umaGame.accentVar}) / ${isPast ? 0.04 : 0.08})`}
+                      strokeWidth={1}
+                    />
+                    {/* Scenario name label at top-right of band */}
+                    <text
+                      x={x1 + 6}
+                      y={umaRowTop + 14}
+                      fontSize={7}
+                      fontWeight={700}
+                      fontFamily={MONO}
+                      fill={`hsla(var(${umaGame.accentVar}) / ${isPast ? 0.15 : 0.3})`}
+                      letterSpacing="0.8px"
+                    >
+                      {scenario.shortName}
+                    </text>
+                  </g>
+                )
+              })
+            })()}
+
             {/* Game rows */}
-            {GAME_IDS.map((gameId, rowIndex) => {
-              const y = HEADER_HEIGHT + rowIndex * rowHeight + rowHeight / 2
-              const rowTop = HEADER_HEIGHT + rowIndex * rowHeight
+            {GAME_IDS.map((gameId) => {
+              const rowTop = getRowTop(gameId)
+              const thisRowHeight = getRowHeight(gameId)
+              const y = rowTop + thisRowHeight / 2
               const game = GAMES[gameId]
+              const hasLanes = !!game.timelineLanes
 
               return (
                 <g key={gameId}>
                   {/* Row separator */}
                   <line
                     x1={0}
-                    y1={rowTop + rowHeight}
+                    y1={rowTop + thisRowHeight}
                     x2={totalWidth}
-                    y2={rowTop + rowHeight}
+                    y2={rowTop + thisRowHeight}
                     stroke="hsla(0,0%,100%,0.03)"
                     strokeWidth={1}
                   />
-                  {/* Center guide line */}
-                  <line
-                    x1={PADDING_LEFT}
-                    y1={y}
-                    x2={totalWidth - PADDING_RIGHT}
-                    y2={y}
-                    stroke={`hsla(var(${game.accentVar}) / 0.06)`}
-                    strokeWidth={1}
-                    strokeDasharray="2 6"
-                  />
+                  {/* Sub-lane divider for games with lanes */}
+                  {hasLanes && (
+                    <line
+                      x1={PADDING_LEFT}
+                      y1={rowTop + thisRowHeight / 2}
+                      x2={totalWidth - PADDING_RIGHT}
+                      y2={rowTop + thisRowHeight / 2}
+                      stroke="hsla(0,0%,100%,0.04)"
+                      strokeWidth={1}
+                      strokeDasharray="2 4"
+                    />
+                  )}
+                  {/* Center guide line(s) */}
+                  {hasLanes ? (
+                    <>
+                      <line
+                        x1={PADDING_LEFT}
+                        y1={rowTop + thisRowHeight * 0.25}
+                        x2={totalWidth - PADDING_RIGHT}
+                        y2={rowTop + thisRowHeight * 0.25}
+                        stroke={`hsla(var(${game.accentVar}) / 0.06)`}
+                        strokeWidth={1}
+                        strokeDasharray="2 6"
+                      />
+                      <line
+                        x1={PADDING_LEFT}
+                        y1={rowTop + thisRowHeight * 0.75}
+                        x2={totalWidth - PADDING_RIGHT}
+                        y2={rowTop + thisRowHeight * 0.75}
+                        stroke={`hsla(var(${game.accentVar}) / 0.06)`}
+                        strokeWidth={1}
+                        strokeDasharray="2 6"
+                      />
+                    </>
+                  ) : (
+                    <line
+                      x1={PADDING_LEFT}
+                      y1={y}
+                      x2={totalWidth - PADDING_RIGHT}
+                      y2={y}
+                      stroke={`hsla(var(${game.accentVar}) / 0.06)`}
+                      strokeWidth={1}
+                      strokeDasharray="2 6"
+                    />
+                  )}
                   {/* Game label - tactical style */}
                   <g>
                     <rect
@@ -1441,6 +1656,71 @@ export function TimelineView() {
                       {game.shortName}
                     </text>
                   </g>
+                  {/* Add banner button for games without patch cycle */}
+                  {!game.hasPatchCycle && (
+                    <g
+                      style={{ cursor: "pointer" }}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setEditorTarget({
+                          gameId,
+                          version: "__create__",
+                          phase: 1,
+                          date: new Date(),
+                          isCreateMode: true,
+                        })
+                      }}
+                    >
+                      <rect
+                        x={2}
+                        y={rowTop + 24}
+                        width={34}
+                        height={16}
+                        rx={2}
+                        fill={`hsla(var(${game.accentVar}) / 0.06)`}
+                        stroke={`hsla(var(${game.accentVar}) / 0.15)`}
+                        strokeWidth={0.5}
+                      />
+                      <text
+                        x={19}
+                        y={rowTop + 35}
+                        textAnchor="middle"
+                        fontSize={10}
+                        fontWeight={700}
+                        fontFamily={MONO}
+                        fill={`hsla(var(${game.accentVar}) / 0.5)`}
+                      >
+                        +
+                      </text>
+                    </g>
+                  )}
+                  {/* Sub-lane labels for games with lanes */}
+                  {hasLanes && game.timelineLanes && (
+                    <>
+                      <text
+                        x={6}
+                        y={rowTop + thisRowHeight * 0.25 + 3}
+                        fontSize={6}
+                        fontWeight={600}
+                        fontFamily={MONO}
+                        fill={`hsla(var(${game.accentVar}) / 0.35)`}
+                        letterSpacing="0.5px"
+                      >
+                        CHAR
+                      </text>
+                      <text
+                        x={6}
+                        y={rowTop + thisRowHeight * 0.75 + 3}
+                        fontSize={6}
+                        fontWeight={600}
+                        fontFamily={MONO}
+                        fill={`hsla(var(${game.accentVar}) / 0.35)`}
+                        letterSpacing="0.5px"
+                      >
+                        SUPP
+                      </text>
+                    </>
+                  )}
 
                   {/* Connection lines between Phase 1 and Phase 2 */}
                   {allPatches
@@ -1474,7 +1754,7 @@ export function TimelineView() {
                     })
                     .map((cr, ci) => {
                       const cx = dateToX(cr.date, rangeStart, monthWidth)
-                      const cy = y + rowHeight * 0.32
+                      const cy = y + thisRowHeight * 0.32
                       const isPast = cr.date <= now
                       const minor = cr.mode.isMinor ?? false
                       const s = minor ? 8 : 12
@@ -1509,12 +1789,19 @@ export function TimelineView() {
                     .filter((n) => n.gameId === gameId && n.date >= rangeStart)
                     .map((node, nodeIndex) => {
                       const nx = dateToX(node.date, rangeStart, monthWidth)
+                      // For games with sub-lanes, position nodes in top or bottom half
+                      let nodeY = y
+                      if (hasLanes && node.bannerLane) {
+                        nodeY = node.bannerLane === "character"
+                          ? rowTop + thisRowHeight * 0.25
+                          : rowTop + thisRowHeight * 0.75
+                      }
                       return (
                         <TimelineNodeDot
-                          key={`${node.version}-${node.phase}-${nodeIndex}`}
+                          key={`${node.version}-${node.phase}-${nodeIndex}-${node.bannerLane ?? ""}`}
                           node={node}
                           x={nx}
-                          y={y}
+                          y={nodeY}
                           entryMap={entryMap}
                           probability={probMap.get(entryKey(node.gameId, node.version, node.phase as 1 | 2)) ?? null}
                           onHover={(hx, hy) =>
@@ -1530,47 +1817,51 @@ export function TimelineView() {
               )
             })}
 
-            {/* Today marker - red line */}
-            <line
-              x1={todayX}
-              y1={HEADER_HEIGHT}
-              x2={todayX}
-              y2={totalHeight}
-              stroke="hsla(0, 70%, 50%, 0.7)"
-              strokeWidth={1}
-            />
-            {/* Today label badge */}
-            <rect
-              x={todayX - 22}
-              y={HEADER_HEIGHT - 16}
-              width={44}
-              height={14}
-              rx={2}
-              fill="hsla(0, 70%, 50%, 0.15)"
-              stroke="hsla(0, 70%, 50%, 0.4)"
-              strokeWidth={0.5}
-            />
-            <text
-              x={todayX}
-              y={HEADER_HEIGHT - 6}
-              textAnchor="middle"
-              fontSize={8}
-              fontWeight={700}
-              fontFamily="'JetBrains Mono', 'Fira Code', monospace"
-              fill="hsl(0, 70%, 60%)"
-              letterSpacing="1.5px"
-            >
-              NOW
-            </text>
-            {/* Top crosshair tick */}
-            <line
-              x1={todayX - 6}
-              y1={HEADER_HEIGHT}
-              x2={todayX + 6}
-              y2={HEADER_HEIGHT}
-              stroke="hsla(0, 70%, 50%, 0.7)"
-              strokeWidth={1}
-            />
+            {/* Today marker - red line (only shown for current year) */}
+            {selectedYear === now.getFullYear() && (
+              <>
+                <line
+                  x1={todayX}
+                  y1={HEADER_HEIGHT}
+                  x2={todayX}
+                  y2={totalHeight}
+                  stroke="hsla(0, 70%, 50%, 0.7)"
+                  strokeWidth={1}
+                />
+                {/* Today label badge */}
+                <rect
+                  x={todayX - 22}
+                  y={HEADER_HEIGHT - 16}
+                  width={44}
+                  height={14}
+                  rx={2}
+                  fill="hsla(0, 70%, 50%, 0.15)"
+                  stroke="hsla(0, 70%, 50%, 0.4)"
+                  strokeWidth={0.5}
+                />
+                <text
+                  x={todayX}
+                  y={HEADER_HEIGHT - 6}
+                  textAnchor="middle"
+                  fontSize={8}
+                  fontWeight={700}
+                  fontFamily="'JetBrains Mono', 'Fira Code', monospace"
+                  fill="hsl(0, 70%, 60%)"
+                  letterSpacing="1.5px"
+                >
+                  NOW
+                </text>
+                {/* Top crosshair tick */}
+                <line
+                  x1={todayX - 6}
+                  y1={HEADER_HEIGHT}
+                  x2={todayX + 6}
+                  y2={HEADER_HEIGHT}
+                  stroke="hsla(0, 70%, 50%, 0.7)"
+                  strokeWidth={1}
+                />
+              </>
+            )}
 
             {/* Tooltip (rendered last so it's on top) */}
             {tooltip && <Tooltip data={tooltip} />}
@@ -1578,7 +1869,7 @@ export function TimelineView() {
         )}
       </div>
 
-      {/* Range controls - tactical panel */}
+      {/* Year selector - tactical panel */}
       <div
         className="tac-panel"
         style={{
@@ -1588,7 +1879,7 @@ export function TimelineView() {
           zIndex: 10,
           display: "flex",
           alignItems: "center",
-          gap: 10,
+          gap: 8,
           fontSize: 10,
           color: "hsl(var(--muted-foreground))",
           userSelect: "none",
@@ -1597,19 +1888,18 @@ export function TimelineView() {
           fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <span style={{ opacity: 0.45, fontSize: 8, letterSpacing: "1px", textTransform: "uppercase" }}>RNG</span>
-          <button className="tac-btn" onClick={() => setMonthsBack((v) => Math.max(1, v - 1))}>-</button>
-          <span style={{ minWidth: 32, textAlign: "center", fontSize: 11, fontWeight: 600 }}>{monthsBack}mo</span>
-          <button className="tac-btn" onClick={() => setMonthsBack((v) => Math.min(24, v + 1))}>+</button>
-        </div>
-        <div style={{ width: 1, height: 14, background: "hsla(0,0%,100%,0.06)" }} />
-        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <span style={{ opacity: 0.45, fontSize: 8, letterSpacing: "1px", textTransform: "uppercase" }}>FWD</span>
-          <button className="tac-btn" onClick={() => setMonthsForward((v) => Math.max(1, v - 1))}>-</button>
-          <span style={{ minWidth: 32, textAlign: "center", fontSize: 11, fontWeight: 600 }}>{monthsForward}mo</span>
-          <button className="tac-btn" onClick={() => setMonthsForward((v) => Math.min(24, v + 1))}>+</button>
-        </div>
+        <span style={{ opacity: 0.45, fontSize: 8, letterSpacing: "1px", textTransform: "uppercase" }}>Year</span>
+        <button className="tac-btn" onClick={() => setSelectedYear((y) => y - 1)}>
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+            <path d="M6.5 2L3.5 5L6.5 8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+        <span style={{ minWidth: 36, textAlign: "center", fontSize: 12, fontWeight: 700, letterSpacing: "0.5px" }}>{selectedYear}</span>
+        <button className="tac-btn" onClick={() => setSelectedYear((y) => y + 1)}>
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+            <path d="M3.5 2L6.5 5L3.5 8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
       </div>
 
       {/* Bottom-right toolbar - tactical */}
@@ -1623,13 +1913,17 @@ export function TimelineView() {
           gap: 6,
         }}
       >
-        {/* Jump to Now */}
+        {/* Jump to Now (current year) or jump to current year */}
         <button
           className="tac-panel"
           onClick={() => {
             if (!scrollRef.current) return
-            const tx = dateToX(now, rangeStart, monthWidth)
-            scrollRef.current.scrollLeft = tx - scrollRef.current.clientWidth / 3
+            if (selectedYear === now.getFullYear()) {
+              const tx = dateToX(now, rangeStart, monthWidth)
+              scrollRef.current.scrollLeft = tx - scrollRef.current.clientWidth / 3
+            } else {
+              setSelectedYear(now.getFullYear())
+            }
           }}
           style={{
             padding: "4px 12px",
@@ -1643,7 +1937,7 @@ export function TimelineView() {
             letterSpacing: "1px",
           }}
         >
-          LOCATE
+          {selectedYear === now.getFullYear() ? "LOCATE" : "TODAY"}
         </button>
 
         {/* Zoom level */}
@@ -1676,6 +1970,7 @@ export function TimelineView() {
           date={editorTarget.date}
           onClose={() => setEditorTarget(null)}
           onSave={() => setDataVersion((v) => v + 1)}
+          isCreateMode={editorTarget.isCreateMode}
         />
       )}
     </div>

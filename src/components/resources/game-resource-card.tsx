@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { GAMES, type GameId } from "@/lib/games"
 import { db, type ResourceSnapshot } from "@/lib/db"
+import { DatePicker } from "@/components/ui/date-picker"
 
 function NumField({
   label,
@@ -143,6 +144,9 @@ export function GameResourceCard({ gameId, onSave }: GameResourceCardProps) {
   const [weaponCurrentPity, setWeaponCurrentPity] = useState(0)
   const [weaponIsGuaranteed, setWeaponIsGuaranteed] = useState(false)
   const [weaponFatePoints, setWeaponFatePoints] = useState(0)
+  const [secondaryPullItems, setSecondaryPullItems] = useState(0)
+  const [charSparkCount, setCharSparkCount] = useState(0)
+  const [supportSparkCount, setSupportSparkCount] = useState(0)
   const [monthlyPassActive, setMonthlyPassActive] = useState(false)
   const [monthlyPassExpiry, setMonthlyPassExpiry] = useState("")
   const [dailyCommissionsActive, setDailyCommissionsActive] = useState(false)
@@ -170,6 +174,9 @@ export function GameResourceCard({ gameId, onSave }: GameResourceCardProps) {
         setWeaponCurrentPity(latest.weaponCurrentPity ?? 0)
         setWeaponIsGuaranteed(latest.weaponIsGuaranteed ?? false)
         setWeaponFatePoints(latest.weaponFatePoints ?? 0)
+        setSecondaryPullItems(latest.secondaryPullItems ?? 0)
+        setCharSparkCount(latest.charSparkCount ?? 0)
+        setSupportSparkCount(latest.supportSparkCount ?? 0)
         setMonthlyPassActive(latest.monthlyPassActive)
         setMonthlyPassExpiry(latest.monthlyPassExpiry ?? "")
         setDailyCommissionsActive(latest.dailyCommissionsActive ?? false)
@@ -184,9 +191,9 @@ export function GameResourceCard({ gameId, onSave }: GameResourceCardProps) {
 
   const markDirty = useCallback(() => setDirty(true), [])
 
-  // Auto-convert currency to pull items for GI, HSR, ZZZ (not WuWa)
+  // Auto-convert currency to pull items for GI, HSR, ZZZ (not WuWa, not Uma)
   const autoConvertCurrency = useCallback(() => {
-    if (gameId === "wuwa") return
+    if (gameId === "wuwa" || gameId === "uma") return
     setCurrency((cur) => {
       const pulls = Math.floor(cur / game.currencyPerPull)
       if (pulls <= 0) return cur
@@ -209,6 +216,9 @@ export function GameResourceCard({ gameId, onSave }: GameResourceCardProps) {
       weaponCurrentPity,
       weaponIsGuaranteed,
       weaponFatePoints,
+      secondaryPullItems,
+      charSparkCount,
+      supportSparkCount,
       monthlyPassActive,
       monthlyPassExpiry: monthlyPassExpiry || null,
       dailyCommissionsActive,
@@ -281,52 +291,81 @@ export function GameResourceCard({ gameId, onSave }: GameResourceCardProps) {
           {game.weaponPullItem && (
             <NumField label={game.weaponPullItem} value={weaponPullItems} onChange={(v) => { setWeaponPullItems(v); markDirty() }} />
           )}
+          {game.secondaryPullItem && (
+            <NumField label={game.secondaryPullItem} value={secondaryPullItems} onChange={(v) => { setSecondaryPullItems(v); markDirty() }} />
+          )}
           <NumField label={game.paidCurrency} value={paidCurrency} onChange={(v) => { setPaidCurrency(v); markDirty() }} />
         </div>
 
-        {/* Character banner pity */}
-        <div>
-          <div style={{ fontSize: 10, fontWeight: 600, color: "hsl(var(--muted-foreground))", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-            Character Banner
-          </div>
-          <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
-            <NumField label="Current Pity" value={currentPity} onChange={(v) => { setCurrentPity(v); markDirty() }} max={game.pity5Star} />
-            <div style={{ flex: 1, paddingBottom: 2 }}>
-              <Toggle
-                active={isGuaranteed}
-                onToggle={() => { setIsGuaranteed(!isGuaranteed); markDirty() }}
-                label="Guaranteed"
-                accentBgVal={accentBg(0.35)}
-                dotColor={accent}
-              />
+        {gameId === "uma" ? (
+          <>
+            {/* Uma: Character Spark Counter */}
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 600, color: "hsl(var(--muted-foreground))", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                Umamusume Banner
+              </div>
+              <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
+                <NumField label="Spark Count" value={charSparkCount} onChange={(v) => { setCharSparkCount(v); markDirty() }} max={game.sparkThreshold} suffix={`/ ${game.sparkThreshold}`} />
+              </div>
             </div>
-          </div>
-        </div>
 
-        {/* Weapon banner pity */}
-        <div>
-          <div style={{ fontSize: 10, fontWeight: 600, color: "hsl(var(--muted-foreground))", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-            Weapon Banner
-          </div>
-          <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
-            <NumField label="Current Pity" value={weaponCurrentPity} onChange={(v) => { setWeaponCurrentPity(v); markDirty() }} max={game.weaponPity} />
-            {game.weaponGuaranteed ? (
-              <div style={{ flex: 1, paddingBottom: 2 }}>
-                <span style={{ fontSize: 10, color: "hsl(142, 50%, 50%)" }}>Always guaranteed</span>
+            {/* Uma: Support Card Spark Counter */}
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 600, color: "hsl(var(--muted-foreground))", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                Support Card Banner
               </div>
-            ) : (
-              <div style={{ paddingBottom: 2 }}>
-                <Toggle
-                  active={weaponIsGuaranteed}
-                  onToggle={() => { setWeaponIsGuaranteed(!weaponIsGuaranteed); markDirty() }}
-                  label="Guaranteed"
-                  accentBgVal={accentBg(0.35)}
-                  dotColor={accent}
-                />
+              <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
+                <NumField label="Spark Count" value={supportSparkCount} onChange={(v) => { setSupportSparkCount(v); markDirty() }} max={game.sparkThreshold} suffix={`/ ${game.sparkThreshold}`} />
               </div>
-            )}
-          </div>
-        </div>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Character banner pity */}
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 600, color: "hsl(var(--muted-foreground))", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                Character Banner
+              </div>
+              <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
+                <NumField label="Current Pity" value={currentPity} onChange={(v) => { setCurrentPity(v); markDirty() }} max={game.pity5Star} />
+                <div style={{ flex: 1, paddingBottom: 2 }}>
+                  <Toggle
+                    active={isGuaranteed}
+                    onToggle={() => { setIsGuaranteed(!isGuaranteed); markDirty() }}
+                    label="Guaranteed"
+                    accentBgVal={accentBg(0.35)}
+                    dotColor={accent}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Weapon banner pity */}
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 600, color: "hsl(var(--muted-foreground))", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.5px" }}>
+                Weapon Banner
+              </div>
+              <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
+                <NumField label="Current Pity" value={weaponCurrentPity} onChange={(v) => { setWeaponCurrentPity(v); markDirty() }} max={game.weaponPity} />
+                {game.weaponGuaranteed ? (
+                  <div style={{ flex: 1, paddingBottom: 2 }}>
+                    <span style={{ fontSize: 10, color: "hsl(142, 50%, 50%)" }}>Always guaranteed</span>
+                  </div>
+                ) : (
+                  <div style={{ paddingBottom: 2 }}>
+                    <Toggle
+                      active={weaponIsGuaranteed}
+                      onToggle={() => { setWeaponIsGuaranteed(!weaponIsGuaranteed); markDirty() }}
+                      label="Guaranteed"
+                      accentBgVal={accentBg(0.35)}
+                      dotColor={accent}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
 
         {/* Divider */}
         <div style={{ height: 1, background: "hsla(0,0%,100%,0.06)" }} />
@@ -361,23 +400,13 @@ export function GameResourceCard({ gameId, onSave }: GameResourceCardProps) {
               <label style={{ display: "block", fontSize: 10, color: "hsl(var(--muted-foreground))", marginBottom: 4 }}>
                 Expires on
               </label>
-              <input
-                type="date"
-                value={monthlyPassExpiry ? monthlyPassExpiry.split("T")[0] : ""}
-                onChange={(e) => {
-                  setMonthlyPassExpiry(e.target.value ? new Date(e.target.value).toISOString() : "")
+              <DatePicker
+                value={monthlyPassExpiry ? new Date(monthlyPassExpiry) : null}
+                onChange={(d) => {
+                  setMonthlyPassExpiry(d.toISOString())
                   markDirty()
                 }}
-                style={{
-                  padding: "4px 8px",
-                  borderRadius: 6,
-                  fontSize: 11,
-                  background: "hsla(0,0%,100%,0.04)",
-                  border: "1px solid hsla(0,0%,100%,0.08)",
-                  outline: "none",
-                  color: "hsl(var(--foreground))",
-                  colorScheme: "dark",
-                }}
+                accentVar={GAMES[gameId].accentVar}
               />
             </div>
           )}

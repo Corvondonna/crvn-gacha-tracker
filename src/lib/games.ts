@@ -1,4 +1,4 @@
-export type GameId = "genshin" | "hsr" | "zzz" | "wuwa"
+export type GameId = "genshin" | "hsr" | "zzz" | "wuwa" | "uma"
 
 export interface GameConfig {
   id: GameId
@@ -24,6 +24,8 @@ export interface GameConfig {
   monthlyPass: string
   monthlyPassDaily: number
   dailyCommissionIncome: number
+  /** Hour of day (0-23, local time) when daily rewards reset */
+  dailyResetHour: number
   accentVar: string
   patchCycle: {
     durationDays: number
@@ -31,6 +33,18 @@ export interface GameConfig {
     phase2OffsetDays: number
     livestreamOffsetDays: number
   }
+  /** Whether this game uses a fixed patch cycle (false = manual banner dates) */
+  hasPatchCycle: boolean
+  /** Sub-lane configuration for timeline (e.g., Uma has character + support lanes) */
+  timelineLanes?: string[]
+  /** Secondary pull item for games with two banner types (Uma support card tickets) */
+  secondaryPullItem?: string | null
+  /** Spark system: guaranteed pick after N pulls on a single banner (0 = no spark) */
+  sparkThreshold: number
+  /** Whether spark counter carries across banners (false = resets each banner) */
+  sparkCarries: boolean
+  /** Whether the game uses a 50/50 system */
+  has5050: boolean
 }
 
 export const GAMES: Record<GameId, GameConfig> = {
@@ -54,6 +68,7 @@ export const GAMES: Record<GameId, GameConfig> = {
     monthlyPass: "Blessing of Welkin Moon",
     monthlyPassDaily: 90,
     dailyCommissionIncome: 60,
+    dailyResetHour: 4,
     accentVar: "--genshin",
     patchCycle: {
       durationDays: 42,
@@ -61,6 +76,10 @@ export const GAMES: Record<GameId, GameConfig> = {
       phase2OffsetDays: 20,
       livestreamOffsetDays: 30,
     },
+    hasPatchCycle: true,
+    sparkThreshold: 0,
+    sparkCarries: false,
+    has5050: true,
   },
   hsr: {
     id: "hsr",
@@ -82,6 +101,7 @@ export const GAMES: Record<GameId, GameConfig> = {
     monthlyPass: "Express Supply Pass",
     monthlyPassDaily: 90,
     dailyCommissionIncome: 60,
+    dailyResetHour: 4,
     accentVar: "--hsr",
     patchCycle: {
       durationDays: 42,
@@ -89,6 +109,10 @@ export const GAMES: Record<GameId, GameConfig> = {
       phase2OffsetDays: 20,
       livestreamOffsetDays: 30,
     },
+    hasPatchCycle: true,
+    sparkThreshold: 0,
+    sparkCarries: false,
+    has5050: true,
   },
   zzz: {
     id: "zzz",
@@ -110,6 +134,7 @@ export const GAMES: Record<GameId, GameConfig> = {
     monthlyPass: "Inter-Knot Membership",
     monthlyPassDaily: 90,
     dailyCommissionIncome: 60,
+    dailyResetHour: 4,
     accentVar: "--zzz",
     patchCycle: {
       durationDays: 42,
@@ -117,6 +142,10 @@ export const GAMES: Record<GameId, GameConfig> = {
       phase2OffsetDays: 21,
       livestreamOffsetDays: 30,
     },
+    hasPatchCycle: true,
+    sparkThreshold: 0,
+    sparkCarries: false,
+    has5050: true,
   },
   wuwa: {
     id: "wuwa",
@@ -138,6 +167,7 @@ export const GAMES: Record<GameId, GameConfig> = {
     monthlyPass: "Lunite Subscription",
     monthlyPassDaily: 90,
     dailyCommissionIncome: 60,
+    dailyResetHour: 4,
     accentVar: "--wuwa",
     patchCycle: {
       durationDays: 42,
@@ -145,7 +175,46 @@ export const GAMES: Record<GameId, GameConfig> = {
       phase2OffsetDays: 21,
       livestreamOffsetDays: 29,
     },
+    hasPatchCycle: true,
+    sparkThreshold: 0,
+    sparkCarries: false,
+    has5050: true,
+  },
+  uma: {
+    id: "uma",
+    name: "Umamusume: Pretty Derby",
+    shortName: "Uma",
+    currency: "Carats",
+    pullItem: "Trainee Scout Ticket",
+    weaponPullItem: null,
+    secondaryPullItem: "Support Card Scout Ticket",
+    paidCurrency: "Paid Carats",
+    currencyPerPull: 150,
+    baseRate5Star: 0.03,
+    pity5Star: 200,
+    softPityStart: 200,
+    weaponPity: 200,
+    weaponSoftPityStart: 200,
+    weaponBaseRate: 0.03,
+    weaponGuaranteed: false,
+    weaponMaxFatePoints: 0,
+    monthlyPass: "Daily Carat Pack",
+    monthlyPassDaily: 50,
+    dailyCommissionIncome: 75,
+    dailyResetHour: 23,
+    accentVar: "--uma",
+    patchCycle: {
+      durationDays: 14,
+      patchDay: "N/A",
+      phase2OffsetDays: 0,
+      livestreamOffsetDays: 0,
+    },
+    hasPatchCycle: false,
+    timelineLanes: ["character", "support"],
+    sparkThreshold: 200,
+    sparkCarries: false,
+    has5050: false,
   },
 }
 
-export const GAME_IDS: GameId[] = ["genshin", "hsr", "zzz", "wuwa"]
+export const GAME_IDS: GameId[] = ["genshin", "hsr", "zzz", "wuwa", "uma"]
