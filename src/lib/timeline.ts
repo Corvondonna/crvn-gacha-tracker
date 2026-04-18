@@ -40,8 +40,10 @@ export function calculatePatchDates(
     phase2Start.setDate(phase2Start.getDate() + cycle.phase2OffsetDays)
   }
 
-  const livestreamDate = new Date(actualPhase1)
-  livestreamDate.setDate(livestreamDate.getDate() + cycle.livestreamOffsetDays)
+  const livestreamDate = override?.livestreamDate ?? new Date(actualPhase1)
+  if (!override?.livestreamDate) {
+    livestreamDate.setDate(livestreamDate.getDate() + cycle.livestreamOffsetDays)
+  }
 
   const patchEnd = new Date(actualPhase1)
   patchEnd.setDate(patchEnd.getDate() + cycle.durationDays)

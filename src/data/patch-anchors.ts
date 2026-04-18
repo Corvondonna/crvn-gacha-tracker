@@ -36,6 +36,7 @@ export const PATCH_ANCHORS: PatchAnchor[] = [
 export interface PatchDateOverride {
   phase1Start?: Date
   phase2Start?: Date
+  livestreamDate?: Date
 }
 
 export const PATCH_DATE_OVERRIDES: Record<string, PatchDateOverride> = {
@@ -45,8 +46,10 @@ export const PATCH_DATE_OVERRIDES: Record<string, PatchDateOverride> = {
     phase2Start: new Date(2026, 2, 4),
   },
   // HSR 4.1 - official schedule: Phase 1 Mar 25, Phase 2 Apr 8
+  // Livestream for 4.2 airs during 4.1 on Apr 10
   "hsr:4.1": {
     phase1Start: new Date(2026, 2, 25),
     phase2Start: new Date(2026, 3, 8),
+    livestreamDate: new Date(2026, 3, 10),
   },
 }

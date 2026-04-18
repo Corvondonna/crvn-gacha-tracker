@@ -36,6 +36,8 @@ function probTierColor(tier: ProbabilityResult["tier"]): string {
   }
 }
 
+const MONO_FONT = "'JetBrains Mono', 'Fira Code', monospace"
+
 function InfoIcon({ tooltip }: { tooltip: string }) {
   const [show, setShow] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -76,13 +78,14 @@ function InfoIcon({ tooltip }: { tooltip: string }) {
             transform: "translateX(-50%)",
             width: 260,
             padding: "10px 12px",
-            borderRadius: 8,
-            background: "hsl(220, 15%, 16%)",
+            borderRadius: 3,
+            background: "hsla(0, 0%, 3%, 0.95)",
             border: "1px solid hsla(0,0%,100%,0.1)",
-            boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
-            fontSize: 10,
-            lineHeight: 1.5,
-            color: "hsl(var(--muted-foreground))",
+            boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+            fontSize: 9,
+            fontFamily: MONO_FONT,
+            lineHeight: 1.6,
+            color: "hsla(0,0%,100%,0.5)",
             whiteSpace: "pre-line",
             zIndex: 100,
             pointerEvents: "none",
@@ -105,17 +108,18 @@ function ProbRow({ label, result, pulls, formula }: {
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-        <span style={{ fontSize: 11, color: "hsl(var(--muted-foreground))" }}>{label}</span>
+        <span style={{ fontSize: 10, fontFamily: MONO_FONT, color: "hsla(0,0%,100%,0.4)" }}>{label}</span>
         {formula && <InfoIcon tooltip={formula} />}
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ fontSize: 11, color: "hsl(var(--muted-foreground))" }}>
+        <span style={{ fontSize: 10, fontFamily: MONO_FONT, color: "hsla(0,0%,100%,0.3)" }}>
           {pulls} pulls
         </span>
         <span
           style={{
             fontSize: 13,
             fontWeight: 700,
+            fontFamily: MONO_FONT,
             color,
             minWidth: 42,
             textAlign: "right",
@@ -372,37 +376,59 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
             }}
           />
         </div>
-        <span style={{ fontSize: 11, color: "hsl(var(--muted-foreground))" }}>
+        <span style={{ fontSize: 10, fontFamily: "'JetBrains Mono', 'Fira Code', monospace", color: "hsla(0,0%,100%,0.4)" }}>
           {label}
         </span>
       </label>
     )
   }
 
+  const MONO = "'JetBrains Mono', 'Fira Code', monospace"
+
+  const SectionLabel = ({ children }: { children: string }) => (
+    <div
+      style={{
+        fontSize: 9,
+        fontWeight: 700,
+        fontFamily: MONO,
+        color: "hsla(0,0%,100%,0.3)",
+        textTransform: "uppercase",
+        letterSpacing: "1.5px",
+        marginBottom: 8,
+      }}
+    >
+      {children}
+    </div>
+  )
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
       style={{
-        background: "rgba(0,0,0,0.6)",
+        background: "rgba(0,0,0,0.7)",
         backdropFilter: "blur(4px)",
         WebkitBackdropFilter: "blur(4px)",
       }}
     >
       <div
         ref={panelRef}
-        className="rounded-2xl overflow-hidden"
         style={{
           width: 420,
-          background: "hsla(var(--glass-bg) / 0.85)",
+          background: "hsla(0, 0%, 4%, 0.95)",
           backdropFilter: "blur(20px)",
           WebkitBackdropFilter: "blur(20px)",
           border: `1px solid ${accentBg(0.2)}`,
+          borderRadius: 4,
+          overflow: "hidden",
         }}
       >
+        {/* Accent top bar */}
+        <div style={{ height: 2, background: accentColor, opacity: 0.5 }} />
+
         {/* Header */}
         <div
           style={{
-            padding: "20px 28px 16px",
+            padding: "16px 24px 14px",
             borderBottom: "1px solid hsla(0,0%,100%,0.06)",
           }}
         >
@@ -410,18 +436,20 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
             <div>
               <div
                 style={{
-                  fontSize: 13,
-                  fontWeight: 600,
-                  letterSpacing: "0.3px",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  fontFamily: MONO,
+                  letterSpacing: "0.8px",
                   color: accentColor,
                 }}
               >
-                {game.shortName} {version} {phase === 1 ? "Phase 1" : "Phase 2"}
+                {game.shortName} // {version} {phase === 1 ? "PH1" : "PH2"}
               </div>
               <div
                 style={{
-                  fontSize: 11,
-                  color: "hsl(var(--muted-foreground))",
+                  fontSize: 10,
+                  fontFamily: MONO,
+                  color: "hsla(0,0%,100%,0.35)",
                   marginTop: 4,
                 }}
               >
@@ -436,16 +464,17 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
             <button
               onClick={onClose}
               style={{
-                width: 32,
-                height: 32,
-                borderRadius: 8,
+                width: 28,
+                height: 28,
+                borderRadius: 3,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: 14,
-                color: "hsl(var(--muted-foreground))",
-                background: "transparent",
-                border: "none",
+                fontSize: 12,
+                fontFamily: MONO,
+                color: "hsla(0,0%,100%,0.35)",
+                background: "hsla(0,0%,100%,0.04)",
+                border: "1px solid hsla(0,0%,100%,0.08)",
                 cursor: "pointer",
               }}
             >
@@ -455,30 +484,21 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
         </div>
 
         {/* Form body */}
-        <div style={{ padding: "20px 28px", display: "flex", flexDirection: "column", gap: 20 }}>
+        <div style={{ padding: "18px 24px", display: "flex", flexDirection: "column", gap: 18 }}>
           {/* Character name */}
           <div>
-            <label
-              style={{
-                display: "block",
-                fontSize: 11,
-                fontWeight: 500,
-                color: "hsl(var(--muted-foreground))",
-                marginBottom: 6,
-              }}
-            >
-              Character Name
-            </label>
+            <SectionLabel>Target</SectionLabel>
             <input
               type="text"
               value={characterName}
               onChange={(e) => setCharacterName(e.target.value)}
-              placeholder="e.g. Raiden Shogun"
+              placeholder="Character name"
               style={{
                 width: "100%",
                 padding: "8px 12px",
-                borderRadius: 8,
-                fontSize: 13,
+                borderRadius: 3,
+                fontSize: 12,
+                fontFamily: MONO,
                 background: "hsla(0,0%,100%,0.04)",
                 border: "1px solid hsla(0,0%,100%,0.08)",
                 outline: "none",
@@ -491,18 +511,8 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
           <div style={{ display: "flex", gap: 16 }}>
             {/* Value tier */}
             <div style={{ flex: 1 }}>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 11,
-                  fontWeight: 500,
-                  color: "hsl(var(--muted-foreground))",
-                  marginBottom: 6,
-                }}
-              >
-                Value Tier
-              </label>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+              <SectionLabel>Classification</SectionLabel>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 5 }}>
                 {VALUE_TIERS.map((tier) => {
                   const active = valueTier === tier.value
                   return (
@@ -510,15 +520,17 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
                       key={tier.value}
                       onClick={() => setValueTier(tier.value)}
                       style={{
-                        padding: "6px 10px",
-                        borderRadius: 8,
-                        fontSize: 11,
-                        fontWeight: 500,
+                        padding: "6px 8px",
+                        borderRadius: 3,
+                        fontSize: 10,
+                        fontWeight: 600,
+                        fontFamily: MONO,
                         border: `1px solid ${active ? accentBg(0.4) : "hsla(0,0%,100%,0.06)"}`,
-                        background: active ? accentBg(0.15) : "hsla(0,0%,100%,0.03)",
-                        color: active ? accentColor : "hsl(var(--muted-foreground))",
+                        background: active ? accentBg(0.15) : "hsla(0,0%,100%,0.02)",
+                        color: active ? accentColor : "hsla(0,0%,100%,0.35)",
                         cursor: "pointer",
                         transition: "all 0.12s",
+                        letterSpacing: "0.3px",
                       }}
                     >
                       {tier.label}
@@ -530,26 +542,16 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
 
             {/* Portrait */}
             <div>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 11,
-                  fontWeight: 500,
-                  color: "hsl(var(--muted-foreground))",
-                  marginBottom: 6,
-                }}
-              >
-                Portrait
-              </label>
+              <SectionLabel>Portrait</SectionLabel>
               {portraitPreview ? (
                 <div style={{ position: "relative" }}>
                   <img
                     src={portraitPreview}
                     alt="Portrait"
                     style={{
-                      width: 64,
-                      height: 64,
-                      borderRadius: 12,
+                      width: 60,
+                      height: 60,
+                      borderRadius: 3,
                       objectFit: "cover",
                       border: `1px solid ${accentBg(0.3)}`,
                     }}
@@ -558,14 +560,15 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
                     onClick={handleRemovePortrait}
                     style={{
                       position: "absolute",
-                      top: -6,
-                      right: -6,
-                      width: 18,
-                      height: 18,
-                      borderRadius: 9,
-                      background: "hsla(0, 62%, 50%, 0.8)",
+                      top: -5,
+                      right: -5,
+                      width: 16,
+                      height: 16,
+                      borderRadius: 2,
+                      background: "hsla(0, 70%, 50%, 0.9)",
                       color: "white",
-                      fontSize: 9,
+                      fontSize: 8,
+                      fontFamily: MONO,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
@@ -579,9 +582,9 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
               ) : (
                 <label
                   style={{
-                    width: 64,
-                    height: 64,
-                    borderRadius: 12,
+                    width: 60,
+                    height: 60,
+                    borderRadius: 3,
                     border: "1px dashed hsla(0,0%,100%,0.1)",
                     display: "flex",
                     alignItems: "center",
@@ -590,7 +593,7 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
                     transition: "border-color 0.15s",
                   }}
                 >
-                  <span style={{ fontSize: 18, color: "hsl(var(--muted-foreground))" }}>+</span>
+                  <span style={{ fontSize: 16, fontFamily: MONO, color: "hsla(0,0%,100%,0.25)" }}>+</span>
                   <input
                     type="file"
                     accept="image/*"
@@ -604,29 +607,19 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
 
           {/* Pull Status */}
           <div>
-            <label
-              style={{
-                display: "block",
-                fontSize: 11,
-                fontWeight: 500,
-                color: "hsl(var(--muted-foreground))",
-                marginBottom: 6,
-              }}
-            >
-              Pull Status
-            </label>
-            <div style={{ display: "flex", gap: 6 }}>
+            <SectionLabel>Status</SectionLabel>
+            <div style={{ display: "flex", gap: 5 }}>
               {PULL_STATUSES.map((status) => {
                 const active = pullStatus === status.value
                 const statusColors: Record<string, string> = {
-                  none: "hsl(var(--muted-foreground))",
+                  none: "hsla(0,0%,100%,0.4)",
                   secured: "hsl(142, 70%, 50%)",
                   failed: "hsl(0, 70%, 55%)",
                 }
                 const statusBgs: Record<string, string> = {
-                  none: "hsla(0,0%,100%,0.03)",
-                  secured: "hsla(142, 70%, 50%, 0.12)",
-                  failed: "hsla(0, 70%, 55%, 0.12)",
+                  none: "hsla(0,0%,100%,0.02)",
+                  secured: "hsla(142, 70%, 50%, 0.1)",
+                  failed: "hsla(0, 70%, 55%, 0.1)",
                 }
                 const statusBorders: Record<string, string> = {
                   none: "hsla(0,0%,100%,0.06)",
@@ -639,22 +632,24 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
                     onClick={() => setPullStatus(status.value)}
                     style={{
                       flex: 1,
-                      padding: "7px 10px",
-                      borderRadius: 8,
-                      fontSize: 11,
-                      fontWeight: 500,
+                      padding: "6px 8px",
+                      borderRadius: 3,
+                      fontSize: 10,
+                      fontWeight: 600,
+                      fontFamily: MONO,
                       border: `1px solid ${active ? statusBorders[status.value] : "hsla(0,0%,100%,0.06)"}`,
-                      background: active ? statusBgs[status.value] : "hsla(0,0%,100%,0.03)",
-                      color: active ? statusColors[status.value] : "hsl(var(--muted-foreground))",
+                      background: active ? statusBgs[status.value] : "hsla(0,0%,100%,0.02)",
+                      color: active ? statusColors[status.value] : "hsla(0,0%,100%,0.3)",
                       cursor: "pointer",
                       transition: "all 0.12s",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
                       gap: 5,
+                      letterSpacing: "0.3px",
                     }}
                   >
-                    <span style={{ fontSize: 12 }}>{status.icon}</span>
+                    <span style={{ fontSize: 11 }}>{status.icon}</span>
                     {status.label}
                   </button>
                 )
@@ -666,26 +661,16 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
           {probabilities && (
             <div
               style={{
-                padding: "12px 16px",
-                borderRadius: 10,
-                background: "hsla(0,0%,100%,0.03)",
+                padding: "12px 14px",
+                borderRadius: 3,
+                background: "hsla(0,0%,100%,0.02)",
                 border: "1px solid hsla(0,0%,100%,0.06)",
                 display: "flex",
                 flexDirection: "column",
                 gap: 10,
               }}
             >
-              <div
-                style={{
-                  fontSize: 10,
-                  fontWeight: 600,
-                  color: "hsl(var(--muted-foreground))",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.5px",
-                }}
-              >
-                Pull Probability
-              </div>
+              <SectionLabel>Probability</SectionLabel>
               <ProbRow
                 label="Character only"
                 result={probabilities.charOnly}
@@ -705,7 +690,7 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
                 ].join("\n")}
               />
               <ProbRow
-                label="Character + Weapon"
+                label="Char + Weapon"
                 result={probabilities.combined}
                 pulls={probabilities.totalCharPulls}
                 formula={[
@@ -725,7 +710,8 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
           )}
 
           {/* Toggles */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <SectionLabel>Options</SectionLabel>
             <Toggle
               active={isSpeculation}
               onToggle={() => setIsSpeculation(!isSpeculation)}
@@ -747,7 +733,7 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
         {/* Actions */}
         <div
           style={{
-            padding: "16px 28px",
+            padding: "14px 24px",
             borderTop: "1px solid hsla(0,0%,100%,0.06)",
             display: "flex",
             alignItems: "center",
@@ -758,52 +744,58 @@ export function NodeEditor({ gameId, version, phase, date, onClose, onSave }: No
             <button
               onClick={handleDelete}
               style={{
-                padding: "7px 14px",
-                borderRadius: 8,
-                fontSize: 11,
-                fontWeight: 500,
-                border: "1px solid hsla(0, 62%, 50%, 0.2)",
+                padding: "6px 14px",
+                borderRadius: 3,
+                fontSize: 10,
+                fontWeight: 600,
+                fontFamily: MONO,
+                letterSpacing: "0.5px",
+                border: "1px solid hsla(0, 70%, 50%, 0.25)",
                 background: "transparent",
-                color: "hsl(0, 70%, 60%)",
+                color: "hsl(0, 70%, 55%)",
                 cursor: "pointer",
                 transition: "background 0.12s",
               }}
             >
-              Delete
+              DELETE
             </button>
           )}
           <div style={{ flex: 1 }} />
           <button
             onClick={onClose}
             style={{
-              padding: "7px 16px",
-              borderRadius: 8,
-              fontSize: 11,
-              fontWeight: 500,
+              padding: "6px 16px",
+              borderRadius: 3,
+              fontSize: 10,
+              fontWeight: 600,
+              fontFamily: MONO,
+              letterSpacing: "0.5px",
               border: "1px solid hsla(0,0%,100%,0.1)",
               background: "transparent",
-              color: "hsl(var(--muted-foreground))",
+              color: "hsla(0,0%,100%,0.4)",
               cursor: "pointer",
               transition: "background 0.12s",
             }}
           >
-            Cancel
+            CANCEL
           </button>
           <button
             onClick={handleSave}
             style={{
-              padding: "7px 16px",
-              borderRadius: 8,
-              fontSize: 11,
-              fontWeight: 600,
-              border: `1px solid ${accentBg(0.3)}`,
+              padding: "6px 16px",
+              borderRadius: 3,
+              fontSize: 10,
+              fontWeight: 700,
+              fontFamily: MONO,
+              letterSpacing: "0.5px",
+              border: `1px solid ${accentBg(0.35)}`,
               background: accentBg(0.2),
               color: accentColor,
               cursor: "pointer",
               transition: "background 0.12s",
             }}
           >
-            Save
+            SAVE
           </button>
         </div>
       </div>

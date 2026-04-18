@@ -244,6 +244,29 @@ function CombatModeIcon({ icon, size: s, color, colorDim }: { icon: CombatIcon; 
   }
 }
 
+/** Pointy-top hexagon points string for SVG polygon */
+function hexPoints(cx: number, cy: number, r: number): string {
+  return [0, 1, 2, 3, 4, 5]
+    .map((i) => {
+      const angle = (Math.PI / 180) * (60 * i - 90)
+      return `${cx + r * Math.cos(angle)},${cy + r * Math.sin(angle)}`
+    })
+    .join(" ")
+}
+
+/** CSS clip-path for pointy-top hexagon (percentage-based) */
+const HEX_CLIP = "polygon(50% 0%, 93.3% 25%, 93.3% 75%, 50% 100%, 6.7% 75%, 6.7% 25%)"
+
+/** Determine if a node should render as hexagon (limited 5-star Phase 1 only) */
+function isHexNode(node: TimelineNode, entryMap: EntryMap): boolean {
+  if (node.phase !== 1) return false
+  const saved = entryMap.get(entryKey(node.gameId, node.version, node.phase))
+  const tier = saved?.valueTier ?? "limited"
+  return tier === "limited"
+}
+
+const MONO = "'JetBrains Mono', 'Fira Code', monospace"
+
 function TimelineNodeDot({
   node,
   x,
@@ -270,6 +293,7 @@ function TimelineNodeDot({
   const baseSize = getNodeSize(node, entryMap)
   const baseHalf = baseSize / 2
   const isLivestream = node.phase === "livestream"
+  const useHex = isHexNode(node, entryMap)
 
   // Apply saved data overrides
   const saved = entryMap.get(entryKey(node.gameId, node.version, node.phase))
@@ -296,6 +320,76 @@ function TimelineNodeDot({
   } else {
     accentFill = `hsla(var(${game.accentVar}) / ${isSpec ? 0.06 : 0.15})`
   }
+
+  // Shape elements (hex vs circle)
+  const ShapeOutline = useHex ? (
+    <polygon
+      points={hexPoints(x, y, baseHalf)}
+      fill={hasPortrait ? "transparent" : accentFill}
+      stroke={strokeColor}
+      strokeWidth={1.5}
+      strokeLinejoin="round"
+    />
+  ) : (
+    <circle
+      cx={x}
+      cy={y}
+      r={baseHalf}
+      fill={hasPortrait ? "transparent" : accentFill}
+      stroke={strokeColor}
+      strokeWidth={isLivestream ? 1 : 1.5}
+      strokeDasharray={strokeDash}
+    />
+  )
+
+  const GlowOutline = useHex ? (
+    <polygon
+      points={hexPoints(x, y, baseHalf + 4)}
+      fill="none"
+      stroke={strokeColor}
+      strokeWidth={1}
+      strokeLinejoin="round"
+      opacity={isHovered ? 0.35 : 0.15}
+      style={{ transition: "opacity 0.15s ease-out" }}
+    />
+  ) : (
+    <circle
+      cx={x}
+      cy={y}
+      r={baseHalf + 4}
+      fill="none"
+      stroke={strokeColor}
+      strokeWidth={1}
+      opacity={isHovered ? 0.35 : 0.2}
+      style={{ transition: "opacity 0.15s ease-out" }}
+    />
+  )
+
+  const PriorityRing = useHex ? (
+    <polygon
+      points={hexPoints(x, y, baseHalf + 6)}
+      fill="none"
+      stroke={accent}
+      strokeWidth={2}
+      strokeDasharray="8 6"
+      strokeLinejoin="round"
+      className="priority-ring"
+      opacity={0.7}
+    />
+  ) : (
+    <circle
+      cx={x}
+      cy={y}
+      r={baseHalf + 6}
+      fill="none"
+      stroke={accent}
+      strokeWidth={2}
+      strokeDasharray="8 6"
+      strokeLinecap="round"
+      className="priority-ring"
+      opacity={0.7}
+    />
+  )
 
   return (
     <g
@@ -331,48 +425,16 @@ function TimelineNodeDot({
           willChange: isHovered ? "transform" : undefined,
         }}
       >
-        {/* Glow circle behind (skip for livestream) */}
-        {!isLivestream && (
-          <circle
-            cx={x}
-            cy={y}
-            r={baseHalf + 4}
-            fill="none"
-            stroke={strokeColor}
-            strokeWidth={1}
-            opacity={isHovered ? 0.35 : 0.2}
-            style={{ transition: "opacity 0.15s ease-out" }}
-          />
-        )}
+        {/* Glow outline behind (skip for livestream) */}
+        {!isLivestream && GlowOutline}
 
-        {/* Main circle */}
-        <circle
-          cx={x}
-          cy={y}
-          r={baseHalf}
-          fill={hasPortrait ? "transparent" : accentFill}
-          stroke={strokeColor}
-          strokeWidth={isLivestream ? 1 : 1.5}
-          strokeDasharray={strokeDash}
-        />
+        {/* Main shape */}
+        {ShapeOutline}
 
         {/* Priority animated ring */}
-        {isPriority && !isLivestream && (
-          <circle
-            cx={x}
-            cy={y}
-            r={baseHalf + 6}
-            fill="none"
-            stroke={accent}
-            strokeWidth={2}
-            strokeDasharray="8 6"
-            strokeLinecap="round"
-            className="priority-ring"
-            opacity={0.7}
-          />
-        )}
+        {isPriority && !isLivestream && PriorityRing}
 
-        {/* Portrait via foreignObject with CSS border-radius */}
+        {/* Portrait via foreignObject */}
         {hasPortrait && (
           <>
             <foreignObject
@@ -386,7 +448,7 @@ function TimelineNodeDot({
                 style={{
                   width: baseSize,
                   height: baseSize,
-                  borderRadius: "50%",
+                  clipPath: useHex ? HEX_CLIP : "circle(50%)",
                   overflow: "hidden",
                 }}
               >
@@ -403,19 +465,29 @@ function TimelineNodeDot({
                 />
               </div>
             </foreignObject>
-            {/* Stroke ring over portrait */}
-            <circle
-              cx={x}
-              cy={y}
-              r={baseHalf}
-              fill="none"
-              stroke={strokeColor}
-              strokeWidth={1.5}
-            />
+            {/* Stroke outline over portrait */}
+            {useHex ? (
+              <polygon
+                points={hexPoints(x, y, baseHalf)}
+                fill="none"
+                stroke={strokeColor}
+                strokeWidth={1.5}
+                strokeLinejoin="round"
+              />
+            ) : (
+              <circle
+                cx={x}
+                cy={y}
+                r={baseHalf}
+                fill="none"
+                stroke={strokeColor}
+                strokeWidth={1.5}
+              />
+            )}
           </>
         )}
 
-        {/* Label inside node (hidden when portrait fills the circle) */}
+        {/* Label inside node (hidden when portrait fills the shape) */}
         {!hasPortrait && isLivestream && (() => {
           const r1 = baseHalf * 0.35
           const r2 = baseHalf * 0.55
@@ -424,16 +496,12 @@ function TimelineNodeDot({
           return (
             <g transform={`translate(${x}, ${y})`}>
               <circle cx={0} cy={0} r={dot} fill={accent} />
-              {/* Inner left arc */}
               <path d={`M${-r1 * Math.sin(Math.PI/3)},${-r1 * Math.cos(Math.PI/3)} A${r1},${r1} 0 0,0 ${-r1 * Math.sin(Math.PI/3)},${r1 * Math.cos(Math.PI/3)}`}
                 fill="none" stroke={accent} strokeWidth={sw} strokeLinecap="round" />
-              {/* Inner right arc */}
               <path d={`M${r1 * Math.sin(Math.PI/3)},${-r1 * Math.cos(Math.PI/3)} A${r1},${r1} 0 0,1 ${r1 * Math.sin(Math.PI/3)},${r1 * Math.cos(Math.PI/3)}`}
                 fill="none" stroke={accent} strokeWidth={sw} strokeLinecap="round" />
-              {/* Outer left arc */}
               <path d={`M${-r2 * Math.sin(Math.PI/3)},${-r2 * Math.cos(Math.PI/3)} A${r2},${r2} 0 0,0 ${-r2 * Math.sin(Math.PI/3)},${r2 * Math.cos(Math.PI/3)}`}
                 fill="none" stroke={accent} strokeWidth={sw} strokeLinecap="round" />
-              {/* Outer right arc */}
               <path d={`M${r2 * Math.sin(Math.PI/3)},${-r2 * Math.cos(Math.PI/3)} A${r2},${r2} 0 0,1 ${r2 * Math.sin(Math.PI/3)},${r2 * Math.cos(Math.PI/3)}`}
                 fill="none" stroke={accent} strokeWidth={sw} strokeLinecap="round" />
             </g>
@@ -446,7 +514,8 @@ function TimelineNodeDot({
             textAnchor="middle"
             dominantBaseline="middle"
             fontSize={node.phase === 1 ? 12 : 10}
-            fontWeight="bold"
+            fontWeight={700}
+            fontFamily={MONO}
             fill={accent}
           >
             {getNodeLabel(node)}
@@ -454,8 +523,7 @@ function TimelineNodeDot({
         )}
       </g>
 
-      {/* Labels below node (outside scaled group so they stay readable) */}
-      {/* Phase 1 with portrait: version + date */}
+      {/* Labels below node */}
       {hasPortrait && node.phase === 1 && (
         <>
           <text
@@ -463,7 +531,8 @@ function TimelineNodeDot({
             y={y + baseHalf + 14}
             textAnchor="middle"
             fontSize={11}
-            fontWeight="bold"
+            fontWeight={700}
+            fontFamily={MONO}
             fill={accent}
           >
             {node.version}
@@ -473,6 +542,7 @@ function TimelineNodeDot({
             y={y + baseHalf + 28}
             textAnchor="middle"
             fontSize={10}
+            fontFamily={MONO}
             fill="hsl(var(--muted-foreground))"
           >
             {formatDate(node.date)}
@@ -480,40 +550,40 @@ function TimelineNodeDot({
         </>
       )}
 
-      {/* Phase 1 without portrait: date */}
       {!hasPortrait && node.phase === 1 && (
         <text
           x={x}
           y={y + baseHalf + 14}
           textAnchor="middle"
-          fontSize={11}
+          fontSize={10}
+          fontFamily={MONO}
           fill="hsl(var(--muted-foreground))"
         >
           {formatDate(node.date)}
         </text>
       )}
 
-      {/* Phase 2: date */}
       {node.phase === 2 && (
         <text
           x={x}
           y={y + baseHalf + 14}
           textAnchor="middle"
-          fontSize={11}
+          fontSize={10}
+          fontFamily={MONO}
           fill="hsl(var(--muted-foreground))"
         >
           {formatDate(node.date)}
         </text>
       )}
 
-      {/* Livestream: date + version */}
       {isLivestream && (
         <>
           <text
             x={x}
             y={y + baseHalf + 14}
             textAnchor="middle"
-            fontSize={9}
+            fontSize={8}
+            fontFamily={MONO}
             fill="hsl(var(--muted-foreground))"
           >
             {formatDate(node.date)}
@@ -522,7 +592,8 @@ function TimelineNodeDot({
             x={x}
             y={y + baseHalf + 26}
             textAnchor="middle"
-            fontSize={9}
+            fontSize={8}
+            fontFamily={MONO}
             fill={accent}
             opacity={0.6}
           >
@@ -538,6 +609,8 @@ function TimelineNodeDot({
           y={y - baseHalf - 8}
           textAnchor="middle"
           fontSize={11}
+          fontWeight={600}
+          fontFamily={MONO}
           fill={accent}
         >
           {displayName}
@@ -553,7 +626,6 @@ function TimelineNodeDot({
             probability.tier === "medium" ? "hsl(45, 80%, 55%)" :
             probability.tier === "low" ? "hsl(25, 80%, 50%)" :
             "hsl(0, 60%, 50%)"
-          // Position below the last text label
           const probY = node.phase === 1 && (saved?.characterName ?? node.characterName)
             ? y + baseHalf + 46
             : y + baseHalf + 34
@@ -567,7 +639,8 @@ function TimelineNodeDot({
                 y={probY}
                 textAnchor="middle"
                 fontSize={13}
-                fontWeight="bold"
+                fontWeight={700}
+                fontFamily={MONO}
                 fill={probColor}
                 opacity={0.9}
               >
@@ -575,11 +648,12 @@ function TimelineNodeDot({
               </text>
               <text
                 x={x}
-                y={probY + 16}
+                y={probY + 15}
                 textAnchor="middle"
-                fontSize={11}
+                fontSize={9}
+                fontFamily={MONO}
                 fill="hsl(var(--muted-foreground))"
-                opacity={0.7}
+                opacity={0.6}
               >
                 {pullLabel} pulls
               </text>
@@ -605,7 +679,7 @@ function TimelineNodeDot({
             textAnchor="middle"
             dominantBaseline="middle"
             fontSize={11}
-            fontWeight="bold"
+            fontWeight={700}
             fill="hsl(142, 70%, 70%)"
           >
             ✓
@@ -628,7 +702,7 @@ function TimelineNodeDot({
             textAnchor="middle"
             dominantBaseline="middle"
             fontSize={11}
-            fontWeight="bold"
+            fontWeight={700}
             fill="hsl(0, 70%, 70%)"
           >
             ✕
@@ -652,41 +726,57 @@ function Tooltip({ data }: { data: TooltipData }) {
   let line2 = ""
 
   if (node.phase === 1) {
-    title = `${game.name} ${node.version}`
-    line1 = `Phase 1: ${formatFullDate(node.date)}`
-    line2 = patch ? `Phase 2: ${formatFullDate(patch.phase2Start)}` : ""
+    title = `${game.shortName} // ${node.version}`
+    line1 = `PH1: ${formatFullDate(node.date)}`
+    line2 = patch ? `PH2: ${formatFullDate(patch.phase2Start)}` : ""
   } else if (node.phase === 2) {
-    title = `${game.name} ${node.version} P2`
-    line1 = `Phase 2: ${formatFullDate(node.date)}`
-    line2 = patch ? `Patch ends: ${formatFullDate(patch.patchEnd)}` : ""
+    title = `${game.shortName} // ${node.version} P2`
+    line1 = `PH2: ${formatFullDate(node.date)}`
+    line2 = patch ? `END: ${formatFullDate(patch.patchEnd)}` : ""
   } else {
-    title = `${node.version} Preview Livestream`
+    title = `${node.version} // PREVIEW`
     line1 = formatFullDate(node.date)
-    line2 = game.name
+    line2 = game.shortName
   }
+
+  const accentColor = `hsl(var(${game.accentVar}))`
 
   return (
     <g>
+      {/* Background */}
       <rect
         x={tooltipX}
         y={tooltipY}
         width={TOOLTIP_WIDTH}
         height={TOOLTIP_HEIGHT}
-        rx={8}
-        fill="hsla(0, 0%, 8%, 0.92)"
-        stroke={`hsla(var(${game.accentVar}) / 0.3)`}
+        rx={3}
+        fill="hsla(0, 0%, 3%, 0.95)"
+        stroke={`hsla(var(${game.accentVar}) / 0.35)`}
         strokeWidth={1}
       />
+      {/* Accent top bar */}
+      <line
+        x1={tooltipX + 1}
+        y1={tooltipY + 1}
+        x2={tooltipX + TOOLTIP_WIDTH - 1}
+        y2={tooltipY + 1}
+        stroke={accentColor}
+        strokeWidth={2}
+        opacity={0.6}
+      />
+      {/* Arrow */}
       <polygon
-        points={`${x - 6},${tooltipY + TOOLTIP_HEIGHT} ${x + 6},${tooltipY + TOOLTIP_HEIGHT} ${x},${tooltipY + TOOLTIP_HEIGHT + 6}`}
-        fill="hsla(0, 0%, 8%, 0.92)"
+        points={`${x - 5},${tooltipY + TOOLTIP_HEIGHT} ${x + 5},${tooltipY + TOOLTIP_HEIGHT} ${x},${tooltipY + TOOLTIP_HEIGHT + 5}`}
+        fill="hsla(0, 0%, 3%, 0.95)"
       />
       <text
         x={tooltipX + 12}
         y={tooltipY + 22}
-        fontSize={11}
-        fontWeight="bold"
-        fill={`hsl(var(${game.accentVar}))`}
+        fontSize={10}
+        fontWeight={700}
+        fontFamily="'JetBrains Mono', 'Fira Code', monospace"
+        fill={accentColor}
+        letterSpacing="0.5px"
       >
         {title}
       </text>
@@ -694,6 +784,7 @@ function Tooltip({ data }: { data: TooltipData }) {
         x={tooltipX + 12}
         y={tooltipY + 42}
         fontSize={10}
+        fontFamily="'JetBrains Mono', 'Fira Code', monospace"
         fill="hsl(var(--foreground))"
       >
         {line1}
@@ -703,6 +794,7 @@ function Tooltip({ data }: { data: TooltipData }) {
           x={tooltipX + 12}
           y={tooltipY + 58}
           fontSize={10}
+          fontFamily="'JetBrains Mono', 'Fira Code', monospace"
           fill="hsl(var(--muted-foreground))"
         >
           {line2}
@@ -712,12 +804,13 @@ function Tooltip({ data }: { data: TooltipData }) {
         <text
           x={tooltipX + 12}
           y={tooltipY + 76}
-          fontSize={8}
-          fontWeight="bold"
+          fontSize={7}
+          fontWeight={700}
+          fontFamily="'JetBrains Mono', 'Fira Code', monospace"
           fill="hsl(0 70% 55%)"
-          letterSpacing="0.5px"
+          letterSpacing="1px"
         >
-          ESTIMATED DATE
+          ESTIMATED
         </text>
       )}
     </g>
@@ -1140,9 +1233,12 @@ export function TimelineView() {
 
   return (
     <div className="relative h-full">
+      {/* Scanline overlay */}
+      <div className="tactical-scanline" />
+
       <div
         ref={scrollRef}
-        className="overflow-x-auto overflow-y-hidden h-full rounded-lg"
+        className="overflow-x-auto overflow-y-hidden h-full"
         style={{ cursor: isDragging ? "grabbing" : "grab" }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
@@ -1154,6 +1250,39 @@ export function TimelineView() {
             height={totalHeight}
             className="select-none"
           >
+            {/* Defs: grid pattern, glow filters */}
+            <defs>
+              <pattern id="tac-grid" width="48" height="48" patternUnits="userSpaceOnUse">
+                <line x1="48" y1="0" x2="48" y2="48" stroke="hsla(0,0%,100%,0.025)" strokeWidth="0.5" />
+                <line x1="0" y1="48" x2="48" y2="48" stroke="hsla(0,0%,100%,0.025)" strokeWidth="0.5" />
+              </pattern>
+              <pattern id="tac-grid-fine" width="12" height="12" patternUnits="userSpaceOnUse">
+                <line x1="12" y1="0" x2="12" y2="12" stroke="hsla(0,0%,100%,0.012)" strokeWidth="0.5" />
+                <line x1="0" y1="12" x2="12" y2="12" stroke="hsla(0,0%,100%,0.012)" strokeWidth="0.5" />
+              </pattern>
+              <filter id="today-glow">
+                <feGaussianBlur stdDeviation="3" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
+
+            {/* Grid background */}
+            <rect width={totalWidth} height={totalHeight} fill="url(#tac-grid-fine)" />
+            <rect width={totalWidth} height={totalHeight} fill="url(#tac-grid)" />
+
+            {/* Header baseline */}
+            <line
+              x1={0}
+              y1={HEADER_HEIGHT}
+              x2={totalWidth}
+              y2={HEADER_HEIGHT}
+              stroke="hsla(0,0%,100%,0.08)"
+              strokeWidth={1}
+            />
+
             {/* Month headers */}
             {months.map((month, i) => {
               const x = PADDING_LEFT + i * monthWidth
@@ -1167,6 +1296,7 @@ export function TimelineView() {
 
               return (
                 <g key={i}>
+                  {/* Month divider line */}
                   <line
                     x1={x}
                     y1={HEADER_HEIGHT}
@@ -1175,18 +1305,28 @@ export function TimelineView() {
                     stroke="hsla(0, 0%, 100%, 0.04)"
                     strokeWidth={1}
                   />
+                  {/* Tick mark at top */}
+                  <line
+                    x1={x}
+                    y1={HEADER_HEIGHT - 6}
+                    x2={x}
+                    y2={HEADER_HEIGHT}
+                    stroke="hsla(0,0%,100%,0.15)"
+                    strokeWidth={1}
+                  />
+                  {/* Month label */}
                   <text
-                    x={x + monthWidth / 2}
-                    y={28}
-                    textAnchor="middle"
-                    fontSize={11}
-                    fontWeight={isCurrentMonth ? "bold" : "normal"}
+                    x={x + 8}
+                    y={HEADER_HEIGHT - 14}
+                    fontSize={10}
+                    fontWeight={isCurrentMonth ? 700 : 500}
+                    fontFamily="'JetBrains Mono', 'Fira Code', monospace"
                     fill={
                       isCurrentMonth
                         ? "hsl(var(--foreground))"
-                        : "hsl(var(--muted-foreground))"
+                        : "hsla(0,0%,100%,0.35)"
                     }
-                    letterSpacing="0.5px"
+                    letterSpacing="1.2px"
                   >
                     {label}
                   </text>
@@ -1194,32 +1334,135 @@ export function TimelineView() {
               )
             })}
 
+            {/* Patch duration bands (operational windows) */}
+            {GAME_IDS.map((gameId, rowIndex) => {
+              const rowTop = HEADER_HEIGHT + rowIndex * rowHeight
+              const game = GAMES[gameId]
+              const gamePatches = allPatches.filter(p => p.gameId === gameId)
+
+              return gamePatches.map((patch, pi) => {
+                const x1 = dateToX(patch.phase1Start, rangeStart, monthWidth)
+                const x2 = dateToX(patch.patchEnd, rangeStart, monthWidth)
+                const bandWidth = x2 - x1
+                if (bandWidth <= 0) return null
+                const isPast = patch.patchEnd < now
+
+                return (
+                  <g key={`band-${gameId}-${pi}`}>
+                    {/* Patch background band */}
+                    <rect
+                      x={x1}
+                      y={rowTop + 2}
+                      width={bandWidth}
+                      height={rowHeight - 4}
+                      rx={2}
+                      fill={`hsla(var(${game.accentVar}) / ${isPast ? 0.008 : 0.018})`}
+                    />
+                    {/* Progress fill for current/past patches */}
+                    {(() => {
+                      const isCurrent = patch.phase1Start <= now && patch.patchEnd > now
+                      if (!isPast && !isCurrent) return null
+                      const fillWidth = isPast ? bandWidth : Math.max(0, dateToX(now, rangeStart, monthWidth) - x1)
+                      if (fillWidth <= 0) return null
+                      return (
+                        <rect
+                          x={x1}
+                          y={rowTop + 2}
+                          width={Math.min(fillWidth, bandWidth)}
+                          height={rowHeight - 4}
+                          rx={2}
+                          fill={`hsla(var(${game.accentVar}) / ${isPast ? 0.012 : 0.035})`}
+                        />
+                      )
+                    })()}
+                    {/* Left edge marker */}
+                    <line
+                      x1={x1}
+                      y1={rowTop + 6}
+                      x2={x1}
+                      y2={rowTop + rowHeight - 6}
+                      stroke={`hsla(var(${game.accentVar}) / ${isPast ? 0.04 : 0.08})`}
+                      strokeWidth={1}
+                    />
+                  </g>
+                )
+              })
+            })}
+
             {/* Game rows */}
             {GAME_IDS.map((gameId, rowIndex) => {
               const y = HEADER_HEIGHT + rowIndex * rowHeight + rowHeight / 2
+              const rowTop = HEADER_HEIGHT + rowIndex * rowHeight
               const game = GAMES[gameId]
 
               return (
                 <g key={gameId}>
+                  {/* Row separator */}
+                  <line
+                    x1={0}
+                    y1={rowTop + rowHeight}
+                    x2={totalWidth}
+                    y2={rowTop + rowHeight}
+                    stroke="hsla(0,0%,100%,0.03)"
+                    strokeWidth={1}
+                  />
+                  {/* Center guide line */}
                   <line
                     x1={PADDING_LEFT}
                     y1={y}
                     x2={totalWidth - PADDING_RIGHT}
                     y2={y}
-                    stroke={`hsla(var(${game.accentVar}) / 0.12)`}
+                    stroke={`hsla(var(${game.accentVar}) / 0.06)`}
                     strokeWidth={1}
+                    strokeDasharray="2 6"
                   />
-                  <text
-                    x={PADDING_LEFT + 4}
-                    y={HEADER_HEIGHT + rowIndex * rowHeight + 18}
-                    fontSize={9}
-                    fontWeight="bold"
-                    fill={`hsl(var(${game.accentVar}))`}
-                    opacity={0.6}
-                    letterSpacing="0.5px"
-                  >
-                    {game.shortName}
-                  </text>
+                  {/* Game label - tactical style */}
+                  <g>
+                    <rect
+                      x={2}
+                      y={rowTop + 4}
+                      width={34}
+                      height={16}
+                      rx={2}
+                      fill={`hsla(var(${game.accentVar}) / 0.1)`}
+                      stroke={`hsla(var(${game.accentVar}) / 0.2)`}
+                      strokeWidth={0.5}
+                    />
+                    <text
+                      x={19}
+                      y={rowTop + 15}
+                      textAnchor="middle"
+                      fontSize={8}
+                      fontWeight={700}
+                      fontFamily="'JetBrains Mono', 'Fira Code', monospace"
+                      fill={`hsl(var(${game.accentVar}))`}
+                      letterSpacing="0.8px"
+                    >
+                      {game.shortName}
+                    </text>
+                  </g>
+
+                  {/* Connection lines between Phase 1 and Phase 2 */}
+                  {allPatches
+                    .filter(p => p.gameId === gameId)
+                    .map((patch, pi) => {
+                      const p1x = dateToX(patch.phase1Start, rangeStart, monthWidth)
+                      const p2x = dateToX(patch.phase2Start, rangeStart, monthWidth)
+                      if (p1x < PADDING_LEFT - 100 && p2x < PADDING_LEFT - 100) return null
+                      const isPast = patch.patchEnd < now
+                      return (
+                        <line
+                          key={`conn-${gameId}-${pi}`}
+                          x1={p1x}
+                          y1={y}
+                          x2={p2x}
+                          y2={y}
+                          stroke={`hsla(var(${game.accentVar}) / ${isPast ? 0.06 : 0.12})`}
+                          strokeWidth={1}
+                          strokeDasharray="4 4"
+                        />
+                      )
+                    })}
 
                   {/* Combat mode reset nodes */}
                   {combatResets
@@ -1251,9 +1494,10 @@ export function TimelineView() {
                             x={cx}
                             y={cy + s + (minor ? 6 : 8)}
                             textAnchor="middle"
-                            fontSize={minor ? 6 : 8}
+                            fontSize={minor ? 6 : 7}
+                            fontFamily={MONO}
                             fill={isPast ? "hsl(0, 30%, 40%)" : "hsl(0, 50%, 60%)"}
-                            fontWeight="600"
+                            fontWeight={600}
                           >
                             +{cr.mode.reward}
                           </text>
@@ -1286,27 +1530,47 @@ export function TimelineView() {
               )
             })}
 
-            {/* Today marker */}
+            {/* Today marker - red line */}
             <line
               x1={todayX}
-              y1={HEADER_HEIGHT - 5}
+              y1={HEADER_HEIGHT}
               x2={todayX}
               y2={totalHeight}
-              stroke="hsla(0, 0%, 100%, 0.3)"
+              stroke="hsla(0, 70%, 50%, 0.7)"
               strokeWidth={1}
-              strokeDasharray="4 3"
+            />
+            {/* Today label badge */}
+            <rect
+              x={todayX - 22}
+              y={HEADER_HEIGHT - 16}
+              width={44}
+              height={14}
+              rx={2}
+              fill="hsla(0, 70%, 50%, 0.15)"
+              stroke="hsla(0, 70%, 50%, 0.4)"
+              strokeWidth={0.5}
             />
             <text
               x={todayX}
-              y={HEADER_HEIGHT - 10}
+              y={HEADER_HEIGHT - 6}
               textAnchor="middle"
               fontSize={8}
-              fontWeight="bold"
-              fill="hsl(var(--foreground))"
-              opacity={0.6}
+              fontWeight={700}
+              fontFamily="'JetBrains Mono', 'Fira Code', monospace"
+              fill="hsl(0, 70%, 60%)"
+              letterSpacing="1.5px"
             >
-              TODAY
+              NOW
             </text>
+            {/* Top crosshair tick */}
+            <line
+              x1={todayX - 6}
+              y1={HEADER_HEIGHT}
+              x2={todayX + 6}
+              y2={HEADER_HEIGHT}
+              stroke="hsla(0, 70%, 50%, 0.7)"
+              strokeWidth={1}
+            />
 
             {/* Tooltip (rendered last so it's on top) */}
             {tooltip && <Tooltip data={tooltip} />}
@@ -1314,8 +1578,9 @@ export function TimelineView() {
         )}
       </div>
 
-      {/* Range controls */}
+      {/* Range controls - tactical panel */}
       <div
+        className="tac-panel"
         style={{
           position: "absolute",
           top: 4,
@@ -1323,100 +1588,31 @@ export function TimelineView() {
           zIndex: 10,
           display: "flex",
           alignItems: "center",
-          gap: 8,
+          gap: 10,
           fontSize: 10,
           color: "hsl(var(--muted-foreground))",
           userSelect: "none",
-          padding: "4px 10px",
-          borderRadius: 8,
-          background: "hsla(0, 0%, 5%, 0.85)",
-          border: "1px solid hsla(0, 0%, 100%, 0.06)",
+          padding: "5px 12px",
+          borderRadius: 3,
+          fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <span style={{ opacity: 0.6 }}>Past</span>
-          <button
-            onClick={() => setMonthsBack((v) => Math.max(1, v - 1))}
-            style={{
-              width: 18,
-              height: 18,
-              borderRadius: 4,
-              border: "1px solid hsla(0,0%,100%,0.1)",
-              background: "hsla(0,0%,100%,0.04)",
-              color: "hsl(var(--muted-foreground))",
-              fontSize: 11,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            -
-          </button>
-          <span style={{ minWidth: 28, textAlign: "center" }}>{monthsBack}mo</span>
-          <button
-            onClick={() => setMonthsBack((v) => Math.min(24, v + 1))}
-            style={{
-              width: 18,
-              height: 18,
-              borderRadius: 4,
-              border: "1px solid hsla(0,0%,100%,0.1)",
-              background: "hsla(0,0%,100%,0.04)",
-              color: "hsl(var(--muted-foreground))",
-              fontSize: 11,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            +
-          </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          <span style={{ opacity: 0.45, fontSize: 8, letterSpacing: "1px", textTransform: "uppercase" }}>RNG</span>
+          <button className="tac-btn" onClick={() => setMonthsBack((v) => Math.max(1, v - 1))}>-</button>
+          <span style={{ minWidth: 32, textAlign: "center", fontSize: 11, fontWeight: 600 }}>{monthsBack}mo</span>
+          <button className="tac-btn" onClick={() => setMonthsBack((v) => Math.min(24, v + 1))}>+</button>
         </div>
-        <div style={{ width: 1, height: 12, background: "hsla(0,0%,100%,0.08)" }} />
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-          <span style={{ opacity: 0.6 }}>Future</span>
-          <button
-            onClick={() => setMonthsForward((v) => Math.max(1, v - 1))}
-            style={{
-              width: 18,
-              height: 18,
-              borderRadius: 4,
-              border: "1px solid hsla(0,0%,100%,0.1)",
-              background: "hsla(0,0%,100%,0.04)",
-              color: "hsl(var(--muted-foreground))",
-              fontSize: 11,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            -
-          </button>
-          <span style={{ minWidth: 28, textAlign: "center" }}>{monthsForward}mo</span>
-          <button
-            onClick={() => setMonthsForward((v) => Math.min(24, v + 1))}
-            style={{
-              width: 18,
-              height: 18,
-              borderRadius: 4,
-              border: "1px solid hsla(0,0%,100%,0.1)",
-              background: "hsla(0,0%,100%,0.04)",
-              color: "hsl(var(--muted-foreground))",
-              fontSize: 11,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            +
-          </button>
+        <div style={{ width: 1, height: 14, background: "hsla(0,0%,100%,0.06)" }} />
+        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          <span style={{ opacity: 0.45, fontSize: 8, letterSpacing: "1px", textTransform: "uppercase" }}>FWD</span>
+          <button className="tac-btn" onClick={() => setMonthsForward((v) => Math.max(1, v - 1))}>-</button>
+          <span style={{ minWidth: 32, textAlign: "center", fontSize: 11, fontWeight: 600 }}>{monthsForward}mo</span>
+          <button className="tac-btn" onClick={() => setMonthsForward((v) => Math.min(24, v + 1))}>+</button>
         </div>
       </div>
 
-      {/* Bottom-right toolbar */}
+      {/* Bottom-right toolbar - tactical */}
       <div
         style={{
           position: "absolute",
@@ -1427,43 +1623,43 @@ export function TimelineView() {
           gap: 6,
         }}
       >
-        {/* Jump to Today */}
+        {/* Jump to Now */}
         <button
+          className="tac-panel"
           onClick={() => {
             if (!scrollRef.current) return
             const tx = dateToX(now, rangeStart, monthWidth)
             scrollRef.current.scrollLeft = tx - scrollRef.current.clientWidth / 3
           }}
           style={{
-            padding: "4px 10px",
-            borderRadius: 8,
-            background: "hsla(0, 0%, 8%, 0.8)",
-            border: "1px solid hsla(0, 0%, 100%, 0.08)",
-            fontSize: 11,
-            fontWeight: 500,
+            padding: "4px 12px",
+            borderRadius: 3,
+            fontSize: 10,
+            fontWeight: 600,
+            fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
             color: "hsl(var(--muted-foreground))",
             cursor: "pointer",
             userSelect: "none",
-            letterSpacing: "0.3px",
+            letterSpacing: "1px",
           }}
         >
-          Today
+          LOCATE
         </button>
 
         {/* Zoom level */}
         {zoom !== 1 && (
           <div
+            className="tac-panel"
             style={{
-              padding: "4px 10px",
-              borderRadius: 8,
-              background: "hsla(0, 0%, 8%, 0.8)",
-              border: "1px solid hsla(0, 0%, 100%, 0.08)",
-              fontSize: 11,
+              padding: "4px 12px",
+              borderRadius: 3,
+              fontSize: 10,
               fontWeight: 600,
+              fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
               color: "hsl(var(--muted-foreground))",
               pointerEvents: "none",
               userSelect: "none",
-              letterSpacing: "0.3px",
+              letterSpacing: "0.5px",
             }}
           >
             {Math.round(zoom * 100)}%
