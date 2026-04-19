@@ -222,14 +222,15 @@ export function probabilityOfFeaturedWeapon(
 /**
  * Combined probability of getting both character AND weapon.
  *
- * Assumes character pulls and weapon pulls come from separate pools
- * (character banner pulls vs weapon banner pulls), so we split available
- * resources optimally. For simplicity, we assume player pulls character first,
- * then uses remaining pulls on weapon banner.
+ * Two modes depending on whether the game has separate pull items per banner:
  *
- * We sum over all possible pull counts where the character is secured,
- * weighted by the probability of securing at that count, then compute
- * weapon probability with the remainder.
+ * 1. Separate pools (e.g., WuWa has Radiant Tide for chars, Forging Tide for weapons):
+ *    Pulls are independent → P(both) = P(char) * P(weapon).
+ *
+ * 2. Shared pool (Genshin, HSR, ZZZ use the same pull item for both banners):
+ *    Every pull spent on character is one fewer for weapon. We model this as
+ *    sequential pulling: character banner first, weapon banner with the remainder.
+ *    P(both) = sum over k of P(char secured at exactly k pulls) * P(weapon with N-k pulls)
  */
 export function probabilityOfCharAndWeapon(
   gameId: GameId,
@@ -241,16 +242,42 @@ export function probabilityOfCharAndWeapon(
   weaponGuaranteed: boolean,
   weaponFatePoints: number
 ): number {
-  // Character probability (from character pull items)
-  const pChar = probabilityOfFeaturedCharacter(gameId, charPity, charPulls, charGuaranteed)
+  const config = GAMES[gameId]
 
-  // Weapon probability (from weapon pull items)
-  const pWeapon = probabilityOfFeaturedWeapon(
-    gameId, weaponPity, weaponPulls, weaponGuaranteed, weaponFatePoints
-  )
+  // Separate pull items → independent banners
+  if (config.weaponPullItem !== null) {
+    const pChar = probabilityOfFeaturedCharacter(gameId, charPity, charPulls, charGuaranteed)
+    const pWeapon = probabilityOfFeaturedWeapon(
+      gameId, weaponPity, weaponPulls, weaponGuaranteed, weaponFatePoints
+    )
+    return pChar * pWeapon
+  }
 
-  // Combined = both must happen (independent banners)
-  return pChar * pWeapon
+  // Shared pool: charPulls and weaponPulls represent the same resources.
+  // Use charPulls as the total pool size.
+  const totalPulls = charPulls
+
+  // Build CDF for character: cdf[k] = P(featured char secured in ≤ k pulls)
+  const cdf: number[] = new Array(totalPulls + 1)
+  cdf[0] = 0
+  for (let k = 1; k <= totalPulls; k++) {
+    cdf[k] = probabilityOfFeaturedCharacter(gameId, charPity, k, charGuaranteed)
+  }
+
+  // Convolution: for each pull count k where character is secured,
+  // compute weapon probability with the remaining pulls.
+  let combined = 0
+  for (let k = 1; k <= totalPulls; k++) {
+    const pCharExactlyK = cdf[k] - cdf[k - 1]
+    if (pCharExactlyK <= 1e-10) continue
+    const remainingPulls = totalPulls - k
+    const pWeapon = probabilityOfFeaturedWeapon(
+      gameId, weaponPity, remainingPulls, weaponGuaranteed, weaponFatePoints
+    )
+    combined += pCharExactlyK * pWeapon
+  }
+
+  return Math.min(combined, 1.0)
 }
 
 // --- Public API ---
