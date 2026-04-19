@@ -14,7 +14,7 @@ function NumField({
   label: string
   value: number
   onChange: (v: number) => void
-  onBlurExtra?: () => void
+  onBlurExtra?: (finalValue: number) => void
   max?: number
   suffix?: string
 }) {
@@ -48,7 +48,7 @@ function NumField({
             const clamped = max !== undefined ? Math.min(num, max) : num
             setLocalVal(clamped === 0 ? "" : String(clamped))
             onChange(clamped)
-            onBlurExtra?.()
+            onBlurExtra?.(clamped)
           }}
           placeholder="0"
           style={{
@@ -192,15 +192,13 @@ export function GameResourceCard({ gameId, onSave }: GameResourceCardProps) {
   const markDirty = useCallback(() => setDirty(true), [])
 
   // Auto-convert currency to pull items for GI, HSR, ZZZ (not WuWa, not Uma)
-  const autoConvertCurrency = useCallback(() => {
+  const autoConvertCurrency = useCallback((currentCurrency: number) => {
     if (gameId === "wuwa" || gameId === "uma") return
-    setCurrency((cur) => {
-      const pulls = Math.floor(cur / game.currencyPerPull)
-      if (pulls <= 0) return cur
-      setPullItems((prev) => prev + pulls)
-      setDirty(true)
-      return cur % game.currencyPerPull
-    })
+    const pulls = Math.floor(currentCurrency / game.currencyPerPull)
+    if (pulls <= 0) return
+    setCurrency(currentCurrency % game.currencyPerPull)
+    setPullItems((prev) => prev + pulls)
+    setDirty(true)
   }, [gameId, game.currencyPerPull])
 
   const handleSave = async () => {
