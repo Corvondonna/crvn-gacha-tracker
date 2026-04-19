@@ -274,9 +274,9 @@ function diamondPoints(cx: number, cy: number, r: number): string {
   return `${cx},${cy - r} ${cx + r},${cy} ${cx},${cy + r} ${cx - r},${cy}`
 }
 
-/** Determine if a node should render as hexagon (limited 5-star Phase 1 only) */
+/** Determine if a node should render as hexagon (limited 5-star Phase 1 and Phase 2) */
 function isHexNode(node: TimelineNode, entryMap: EntryMap): boolean {
-  if (node.phase !== 1) return false
+  if (node.phase !== 1 && node.phase !== 2) return false
   // Uma support cards use diamond, not hex
   if (node.bannerLane === "support") return false
   const saved = entryMap.get(entryKey(node.gameId, node.version, node.phase))
