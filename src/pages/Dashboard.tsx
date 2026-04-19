@@ -226,9 +226,12 @@ export function Dashboard() {
               const rateUpShare = card.entry?.rateUpPercent ? card.entry.rateUpPercent / 100 : 0.5
 
               if (totalPulls > 0) {
+                const copiesNeeded = umaBannerLane === "support"
+                  ? (card.entry?.dupeCount ?? 0) + 1
+                  : 1
                 prob = computeSparkProbability(
                   totalPulls, game.baseRate5Star, rateUpShare,
-                  game.sparkThreshold, sparkCount
+                  game.sparkThreshold, sparkCount, copiesNeeded
                 )
               }
             } else {

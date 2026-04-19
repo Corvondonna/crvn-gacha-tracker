@@ -339,9 +339,10 @@ export function NodeEditor({ gameId, version, phase, date: initialDate, onClose,
 
       if (totalPulls <= 0) return null
 
+      const copiesNeeded = bannerLane === "support" ? dupeCount + 1 : 1
       const sparkProb = computeSparkProbability(
         totalPulls, config.baseRate5Star, rateUpShare,
-        config.sparkThreshold, currentSpark
+        config.sparkThreshold, currentSpark, copiesNeeded
       )
 
       return {
@@ -389,7 +390,7 @@ export function NodeEditor({ gameId, version, phase, date: initialDate, onClose,
       weaponPity,
       weaponGuaranteed,
     }
-  }, [resource, gameId, date, isUma, bannerLane, rateUpPercent])
+  }, [resource, gameId, date, isUma, bannerLane, rateUpPercent, dupeCount])
 
   const accentColor = `hsl(var(${game.accentVar}))`
   const accentBg = (opacity: number) => `hsla(var(${game.accentVar}) / ${opacity})`
@@ -660,7 +661,7 @@ export function NodeEditor({ gameId, version, phase, date: initialDate, onClose,
             <div>
               <SectionLabel>Dupe Count (Limit Break)</SectionLabel>
               <div style={{ display: "flex", gap: 5 }}>
-                {[0, 1, 2, 3, 4, 5].map((count) => {
+                {[0, 1, 2, 3, 4].map((count) => {
                   const active = dupeCount === count
                   return (
                     <button

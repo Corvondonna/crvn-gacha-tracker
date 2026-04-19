@@ -337,49 +337,84 @@ export function computeCombinedProbability(
 }
 
 /**
- * Probability of getting a specific rate-up item in a spark system.
+ * Log of binomial coefficient C(n, k) using sum-of-logs for numerical stability.
+ */
+function logBinomialCoeff(n: number, k: number): number {
+  if (k === 0 || k === n) return 0
+  if (k > n) return -Infinity
+  // Use the smaller of k and n-k for efficiency
+  const m = Math.min(k, n - k)
+  let result = 0
+  for (let i = 0; i < m; i++) {
+    result += Math.log(n - i) - Math.log(i + 1)
+  }
+  return result
+}
+
+/**
+ * Binomial PMF: P(X = k) where X ~ Binomial(n, p).
+ */
+function binomialPMF(n: number, k: number, p: number): number {
+  if (k > n || k < 0) return 0
+  if (p <= 0) return k === 0 ? 1 : 0
+  if (p >= 1) return k === n ? 1 : 0
+  const logProb = logBinomialCoeff(n, k) + k * Math.log(p) + (n - k) * Math.log(1 - p)
+  return Math.exp(logProb)
+}
+
+/**
+ * Probability of getting at least `copiesNeeded` copies of a specific
+ * rate-up item in a flat-rate spark gacha (Uma support cards).
  *
- * Uma uses flat 3% base rate with no soft pity escalation.
- * Spark at 200 pulls guarantees the featured item.
- * No 50/50 system; rate-up share varies per banner (manual input).
+ * Natural copies follow Binomial(N, effectiveRate).
+ * If pulls reach sparkThreshold, player gets 1 free copy (spark select).
+ * Even with 200 pulls, the player still plays the odds during those pulls.
+ * The spark copy is additive on top of whatever natural copies were pulled.
  *
- * @param baseRate - per-pull chance of any top-rarity hit (0.03 for Uma)
- * @param rateUpShare - fraction of top-rarity hits that are the featured item (e.g., 0.5)
- * @param availablePulls - total pulls the player can make
- * @param sparkThreshold - pulls needed for spark (200 for Uma, 0 = no spark)
- * @param currentSparkCount - pulls already accumulated toward spark on this banner
+ * @param copiesNeeded - total copies wanted (dupeCount + 1). 1 = base copy, 5 = max LB.
  */
 export function probabilityWithSpark(
   baseRate: number,
   rateUpShare: number,
   availablePulls: number,
   sparkThreshold: number,
-  currentSparkCount: number = 0
+  currentSparkCount: number = 0,
+  copiesNeeded: number = 1
 ): number {
-  if (availablePulls <= 0) return 0
+  if (availablePulls <= 0 || copiesNeeded <= 0) return 0
 
   const pullsToSpark = sparkThreshold > 0 ? sparkThreshold - currentSparkCount : Infinity
+  const sparkBonus = availablePulls >= pullsToSpark ? 1 : 0
   const effectiveRate = baseRate * rateUpShare
+  const requiredNatural = Math.max(0, copiesNeeded - sparkBonus)
 
-  // If we can reach spark, guaranteed
-  if (availablePulls >= pullsToSpark) return 1.0
+  // Spark alone covers the requirement
+  if (requiredNatural === 0) return 1.0
 
-  // Otherwise, probability of hitting at least once in N pulls
-  const pNoHit = Math.pow(1 - effectiveRate, availablePulls)
-  return 1 - pNoHit
+  // P(Binomial(N, p) >= requiredNatural) = 1 - sum_{k=0}^{requiredNatural-1} PMF(k)
+  let cdfSum = 0
+  for (let k = 0; k < requiredNatural; k++) {
+    cdfSum += binomialPMF(availablePulls, k, effectiveRate)
+  }
+
+  return Math.max(0, Math.min(1 - cdfSum, 1.0))
 }
 
 /**
  * Compute probability for Uma-style gacha (flat rate, spark, no 50/50).
+ * @param copiesNeeded - total copies wanted (default 1). For support cards, dupeCount + 1.
  */
 export function computeSparkProbability(
   availablePulls: number,
   baseRate: number,
   rateUpShare: number,
   sparkThreshold: number,
-  currentSparkCount: number = 0
+  currentSparkCount: number = 0,
+  copiesNeeded: number = 1
 ): ProbabilityResult {
-  const prob = probabilityWithSpark(baseRate, rateUpShare, availablePulls, sparkThreshold, currentSparkCount)
+  const prob = probabilityWithSpark(
+    baseRate, rateUpShare, availablePulls, sparkThreshold, currentSparkCount, copiesNeeded
+  )
   return toResult(prob, availablePulls)
 }
 

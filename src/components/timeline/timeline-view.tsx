@@ -11,7 +11,7 @@ import {
 import { PATCH_ANCHORS } from "@/data/patch-anchors"
 import { db, type TimelineEntry, type ResourceSnapshot } from "@/lib/db"
 import { seedTimeline } from "@/lib/seed-timeline"
-import { computeCharacterProbability, computeCombinedProbability, type ProbabilityResult } from "@/lib/probability"
+import { computeCharacterProbability, computeCombinedProbability, computeSparkProbability, type ProbabilityResult } from "@/lib/probability"
 import { projectIncomeUntil } from "@/lib/daily-income"
 import { COMBAT_MODES, getCombatModeResets, type CombatMode, type CombatIcon } from "@/data/combat-modes"
 import { getCombatNodesVisible, getWeeklyNodesVisible } from "@/components/layout/sidebar"
@@ -67,6 +67,9 @@ type EntryData = {
   pullStatus: TimelineEntry["pullStatus"]
   pullingWeapon: boolean
   portraitUrl: string | null
+  bannerLane?: TimelineEntry["bannerLane"]
+  rateUpPercent?: number
+  dupeCount?: number
 }
 type EntryMap = Map<string, EntryData>
 
@@ -952,6 +955,9 @@ export function TimelineView() {
           pullStatus: e.pullStatus ?? "none",
           pullingWeapon: e.pullingWeapon ?? false,
           portraitUrl: e.characterPortrait ? URL.createObjectURL(e.characterPortrait) : null,
+          bannerLane: e.bannerLane,
+          rateUpPercent: e.rateUpPercent,
+          dupeCount: e.dupeCount,
         })
         if (e.gameId === "uma") umaRaw.push(e)
       }
@@ -1224,32 +1230,52 @@ export function TimelineView() {
       const totalCurrency = (res?.currency ?? 0) + paidCurrency + projected.currency
       const currencyPulls = Math.floor(totalCurrency / config.currencyPerPull)
 
-      // Character banner: pullItems (e.g., Radiant Tide) + currency-converted pulls + projected pull items
-      const charPullItems = (res?.pullItems ?? 0) + projected.pullItems
-      const totalCharPulls = charPullItems + currencyPulls
-      const currentPity = res?.currentPity ?? 0
-      const isGuaranteed = res?.isGuaranteed ?? false
-
-      if (totalCharPulls <= 0 && currentPity <= 0) continue
-
       let result: ProbabilityResult
-      if (entry.pullingWeapon) {
-        const weaponPity = res?.weaponCurrentPity ?? 0
-        const weaponGuaranteed = res?.weaponIsGuaranteed ?? false
-        const weaponFP = res?.weaponFatePoints ?? 0
-        // Weapon banner: weaponPullItems (e.g., Forging Tide) + currency pulls
-        // For games without separate weapon pull items, weapon shares the same pullItems
-        const weaponPullItemCount = config.weaponPullItem
-          ? (res?.weaponPullItems ?? 0) + projected.weaponPullItems
-          : charPullItems
-        const totalWeaponPulls = weaponPullItemCount + currencyPulls
-        result = computeCombinedProbability(
-          node.gameId,
-          currentPity, totalCharPulls, isGuaranteed,
-          weaponPity, totalWeaponPulls, weaponGuaranteed, weaponFP
+
+      // Uma: spark-based probability (no pity system)
+      if (node.gameId === "uma") {
+        const bannerLane = entry.bannerLane
+        const tickets = bannerLane === "support"
+          ? (res?.secondaryPullItems ?? 0)
+          : (res?.pullItems ?? 0)
+        const totalPulls = tickets + currencyPulls
+        const currentSpark = bannerLane === "support"
+          ? (res?.supportSparkCount ?? 0)
+          : (res?.charSparkCount ?? 0)
+        const rateUpShare = entry.rateUpPercent ? entry.rateUpPercent / 100 : 0.5
+        const copiesNeeded = bannerLane === "support" ? (entry.dupeCount ?? 0) + 1 : 1
+
+        if (totalPulls <= 0) continue
+
+        result = computeSparkProbability(
+          totalPulls, config.baseRate5Star, rateUpShare,
+          config.sparkThreshold, currentSpark, copiesNeeded
         )
       } else {
-        result = computeCharacterProbability(node.gameId, currentPity, totalCharPulls, isGuaranteed)
+        // Pity-based games (Genshin, HSR, ZZZ, WuWa)
+        const charPullItems = (res?.pullItems ?? 0) + projected.pullItems
+        const totalCharPulls = charPullItems + currencyPulls
+        const currentPity = res?.currentPity ?? 0
+        const isGuaranteed = res?.isGuaranteed ?? false
+
+        if (totalCharPulls <= 0 && currentPity <= 0) continue
+
+        if (entry.pullingWeapon) {
+          const weaponPity = res?.weaponCurrentPity ?? 0
+          const weaponGuaranteed = res?.weaponIsGuaranteed ?? false
+          const weaponFP = res?.weaponFatePoints ?? 0
+          const weaponPullItemCount = config.weaponPullItem
+            ? (res?.weaponPullItems ?? 0) + projected.weaponPullItems
+            : charPullItems
+          const totalWeaponPulls = weaponPullItemCount + currencyPulls
+          result = computeCombinedProbability(
+            node.gameId,
+            currentPity, totalCharPulls, isGuaranteed,
+            weaponPity, totalWeaponPulls, weaponGuaranteed, weaponFP
+          )
+        } else {
+          result = computeCharacterProbability(node.gameId, currentPity, totalCharPulls, isGuaranteed)
+        }
       }
       newProbMap.set(key, result)
     }
