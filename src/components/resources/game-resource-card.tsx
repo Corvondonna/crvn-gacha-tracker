@@ -7,14 +7,12 @@ function NumField({
   label,
   value,
   onChange,
-  onBlurExtra,
   max,
   suffix,
 }: {
   label: string
   value: number
   onChange: (v: number) => void
-  onBlurExtra?: (finalValue: number) => void
   max?: number
   suffix?: string
 }) {
@@ -48,7 +46,6 @@ function NumField({
             const clamped = max !== undefined ? Math.min(num, max) : num
             setLocalVal(clamped === 0 ? "" : String(clamped))
             onChange(clamped)
-            onBlurExtra?.(clamped)
           }}
           placeholder="0"
           style={{
@@ -191,15 +188,14 @@ export function GameResourceCard({ gameId, onSave }: GameResourceCardProps) {
 
   const markDirty = useCallback(() => setDirty(true), [])
 
-  // Auto-convert currency to pull items for GI, HSR, ZZZ (not WuWa, not Uma)
-  const autoConvertCurrency = useCallback((currentCurrency: number) => {
-    if (gameId === "wuwa" || gameId === "uma") return
-    const pulls = Math.floor(currentCurrency / game.currencyPerPull)
+  // Manual convert currency to pull items
+  const convertCurrency = useCallback(() => {
+    const pulls = Math.floor(currency / game.currencyPerPull)
     if (pulls <= 0) return
-    setCurrency(currentCurrency % game.currencyPerPull)
+    setCurrency(currency % game.currencyPerPull)
     setPullItems((prev) => prev + pulls)
     setDirty(true)
-  }, [gameId, game.currencyPerPull])
+  }, [currency, game.currencyPerPull])
 
   const handleSave = async () => {
     const snapshot: Omit<ResourceSnapshot, "id"> = {
@@ -283,8 +279,33 @@ export function GameResourceCard({ gameId, onSave }: GameResourceCardProps) {
       {/* Body */}
       <div style={{ padding: "14px 18px", display: "flex", flexDirection: "column", gap: 14 }}>
         {/* Currency row */}
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <NumField label={game.currency} value={currency} onChange={(v) => { setCurrency(v); markDirty() }} onBlurExtra={autoConvertCurrency} />
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <NumField label={game.currency} value={currency} onChange={(v) => { setCurrency(v); markDirty() }} />
+          <button
+            onClick={convertCurrency}
+            disabled={Math.floor(currency / game.currencyPerPull) <= 0}
+            title={`Convert ${game.currencyPerPull} ${game.currency} → 1 ${game.pullItem}`}
+            style={{
+              padding: "6px 8px",
+              borderRadius: 6,
+              fontSize: 11,
+              fontWeight: 600,
+              background: Math.floor(currency / game.currencyPerPull) > 0
+                ? `hsla(var(${game.accentVar}) / 0.15)`
+                : "hsla(0,0%,100%,0.03)",
+              border: `1px solid ${Math.floor(currency / game.currencyPerPull) > 0
+                ? `hsla(var(${game.accentVar}) / 0.3)`
+                : "hsla(0,0%,100%,0.06)"}`,
+              color: Math.floor(currency / game.currencyPerPull) > 0
+                ? `hsl(var(${game.accentVar}))`
+                : "hsl(var(--muted-foreground))",
+              cursor: Math.floor(currency / game.currencyPerPull) > 0 ? "pointer" : "default",
+              whiteSpace: "nowrap",
+              marginBottom: 1,
+            }}
+          >
+            →
+          </button>
           <NumField label={game.pullItem} value={pullItems} onChange={(v) => { setPullItems(v); markDirty() }} />
           {game.weaponPullItem && (
             <NumField label={game.weaponPullItem} value={weaponPullItems} onChange={(v) => { setWeaponPullItems(v); markDirty() }} />

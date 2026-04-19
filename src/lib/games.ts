@@ -210,7 +210,6 @@ export const GAMES: Record<GameId, GameConfig> = {
       livestreamOffsetDays: 0,
     },
     hasPatchCycle: false,
-    timelineLanes: ["character", "support"],
     sparkThreshold: 200,
     sparkCarries: false,
     has5050: false,

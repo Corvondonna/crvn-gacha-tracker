@@ -14,7 +14,7 @@ import { seedTimeline } from "@/lib/seed-timeline"
 import { computeCharacterProbability, computeCombinedProbability, computeSparkProbability, type ProbabilityResult } from "@/lib/probability"
 import { projectIncomeUntil } from "@/lib/daily-income"
 import { COMBAT_MODES, getCombatModeResets, type CombatMode, type CombatIcon } from "@/data/combat-modes"
-import { getCombatNodesVisible, getWeeklyNodesVisible } from "@/components/layout/sidebar"
+import { getCombatNodesVisible, getWeeklyNodesVisible, getGameVisibility } from "@/components/layout/sidebar"
 import { UMA_SCENARIOS } from "@/data/uma-scenarios"
 import { NodeEditor } from "./node-editor"
 
@@ -899,6 +899,7 @@ export function TimelineView() {
   const [probMap, setProbMap] = useState<Map<string, ProbabilityResult>>(new Map())
   const [showCombat, setShowCombat] = useState(getCombatNodesVisible)
   const [showWeekly, setShowWeekly] = useState(getWeeklyNodesVisible)
+  const [gameVisibility, setGameVisibility] = useState(getGameVisibility)
   const dragState = useRef({ startX: 0, scrollLeft: 0, didDrag: false })
 
   // Listen for combat/weekly toggles from sidebar
@@ -909,6 +910,13 @@ export function TimelineView() {
     }
     window.addEventListener("combat-toggle", handler)
     return () => window.removeEventListener("combat-toggle", handler)
+  }, [])
+
+  // Listen for game visibility toggles from sidebar
+  useEffect(() => {
+    const handler = () => setGameVisibility(getGameVisibility())
+    window.addEventListener("game-visibility", handler)
+    return () => window.removeEventListener("game-visibility", handler)
   }, [])
 
   const monthWidth = BASE_MONTH_WIDTH * zoom
@@ -1102,37 +1110,36 @@ export function TimelineView() {
   const rangeStart = new Date(selectedYear, 0, 1)   // Jan 1
   const rangeEnd = new Date(selectedYear, 11, 31)    // Dec 31
 
-  // Games with sub-lanes (e.g., Uma) count as 2 rows for height calculation
+  // Count visible game rows for height calculation
+  const visibleGameIds = useMemo(() => {
+    return GAME_IDS.filter((gid) => gameVisibility[gid])
+  }, [gameVisibility])
+
   const effectiveRowCount = useMemo(() => {
-    return GAME_IDS.reduce((count, gid) => {
-      const game = GAMES[gid]
-      return count + (game.timelineLanes ? 1.5 : 1)
-    }, 0)
-  }, [])
+    return visibleGameIds.length
+  }, [visibleGameIds])
 
   const rowHeight = useMemo(() => {
-    if (containerHeight <= 0) return MIN_ROW_HEIGHT
+    if (containerHeight <= 0 || effectiveRowCount <= 0) return MIN_ROW_HEIGHT
     const available = containerHeight - HEADER_HEIGHT - PADDING_BOTTOM
     const computed = Math.floor(available / effectiveRowCount)
     return Math.max(computed, MIN_ROW_HEIGHT)
   }, [containerHeight, effectiveRowCount])
 
-  /** Get the Y offset of a game row's top edge */
+  /** Get the Y offset of a game row's top edge (hidden games = 0 height) */
   const getRowTop = useCallback((gameId: GameId) => {
     let offset = HEADER_HEIGHT
     for (const gid of GAME_IDS) {
       if (gid === gameId) return offset
-      const game = GAMES[gid]
-      offset += (game.timelineLanes ? 1.5 : 1) * rowHeight
+      if (gameVisibility[gid]) offset += rowHeight
     }
     return offset
-  }, [rowHeight])
+  }, [rowHeight, gameVisibility])
 
-  /** Get the total height of a game row */
+  /** Get the total height of a game row (0 if hidden) */
   const getRowHeight = useCallback((gameId: GameId) => {
-    const game = GAMES[gameId]
-    return (game.timelineLanes ? 1.5 : 1) * rowHeight
-  }, [rowHeight])
+    return gameVisibility[gameId] ? rowHeight : 0
+  }, [rowHeight, gameVisibility])
 
   const { months, allNodes, allPatches, combatResets, patchStartMap, totalWidth, totalHeight } = useMemo(() => {
     const months = getMonthsBetween(rangeStart, rangeEnd)
@@ -1475,6 +1482,7 @@ export function TimelineView() {
 
             {/* Patch duration bands (operational windows) */}
             {GAME_IDS.map((gameId) => {
+              if (!gameVisibility[gameId]) return null
               const rowTop = getRowTop(gameId)
               const thisRowHeight = getRowHeight(gameId)
               const game = GAMES[gameId]
@@ -1530,7 +1538,7 @@ export function TimelineView() {
             })}
 
             {/* Uma scenario bands */}
-            {(() => {
+            {gameVisibility["uma"] && (() => {
               const umaRowTop = getRowTop("uma")
               const umaRowHeight = getRowHeight("uma")
               const umaGame = GAMES["uma"]
@@ -1596,11 +1604,11 @@ export function TimelineView() {
 
             {/* Game rows */}
             {GAME_IDS.map((gameId) => {
+              if (!gameVisibility[gameId]) return null
               const rowTop = getRowTop(gameId)
               const thisRowHeight = getRowHeight(gameId)
               const y = rowTop + thisRowHeight * 0.4
               const game = GAMES[gameId]
-              const hasLanes = !!game.timelineLanes
 
               return (
                 <g key={gameId}>
@@ -1613,51 +1621,16 @@ export function TimelineView() {
                     stroke="hsla(0,0%,100%,0.03)"
                     strokeWidth={1}
                   />
-                  {/* Sub-lane divider for games with lanes */}
-                  {hasLanes && (
-                    <line
-                      x1={PADDING_LEFT}
-                      y1={rowTop + thisRowHeight / 2}
-                      x2={totalWidth - PADDING_RIGHT}
-                      y2={rowTop + thisRowHeight / 2}
-                      stroke="hsla(0,0%,100%,0.04)"
-                      strokeWidth={1}
-                      strokeDasharray="2 4"
-                    />
-                  )}
-                  {/* Center guide line(s) */}
-                  {hasLanes ? (
-                    <>
-                      <line
-                        x1={PADDING_LEFT}
-                        y1={rowTop + thisRowHeight * 0.25}
-                        x2={totalWidth - PADDING_RIGHT}
-                        y2={rowTop + thisRowHeight * 0.25}
-                        stroke={`hsla(var(${game.accentVar}) / 0.06)`}
-                        strokeWidth={1}
-                        strokeDasharray="2 6"
-                      />
-                      <line
-                        x1={PADDING_LEFT}
-                        y1={rowTop + thisRowHeight * 0.75}
-                        x2={totalWidth - PADDING_RIGHT}
-                        y2={rowTop + thisRowHeight * 0.75}
-                        stroke={`hsla(var(${game.accentVar}) / 0.06)`}
-                        strokeWidth={1}
-                        strokeDasharray="2 6"
-                      />
-                    </>
-                  ) : (
-                    <line
-                      x1={PADDING_LEFT}
-                      y1={y}
-                      x2={totalWidth - PADDING_RIGHT}
-                      y2={y}
-                      stroke={`hsla(var(${game.accentVar}) / 0.06)`}
-                      strokeWidth={1}
-                      strokeDasharray="2 6"
-                    />
-                  )}
+                  {/* Center guide line */}
+                  <line
+                    x1={PADDING_LEFT}
+                    y1={y}
+                    x2={totalWidth - PADDING_RIGHT}
+                    y2={y}
+                    stroke={`hsla(var(${game.accentVar}) / 0.06)`}
+                    strokeWidth={1}
+                    strokeDasharray="2 6"
+                  />
                   {/* Game label - tactical style */}
                   <g>
                     <rect
@@ -1721,34 +1694,6 @@ export function TimelineView() {
                       </text>
                     </g>
                   )}
-                  {/* Sub-lane labels for games with lanes */}
-                  {hasLanes && game.timelineLanes && (
-                    <>
-                      <text
-                        x={6}
-                        y={rowTop + thisRowHeight * 0.25 + 3}
-                        fontSize={6}
-                        fontWeight={600}
-                        fontFamily={MONO}
-                        fill={`hsla(var(${game.accentVar}) / 0.35)`}
-                        letterSpacing="0.5px"
-                      >
-                        CHAR
-                      </text>
-                      <text
-                        x={6}
-                        y={rowTop + thisRowHeight * 0.75 + 3}
-                        fontSize={6}
-                        fontWeight={600}
-                        fontFamily={MONO}
-                        fill={`hsla(var(${game.accentVar}) / 0.35)`}
-                        letterSpacing="0.5px"
-                      >
-                        SUPP
-                      </text>
-                    </>
-                  )}
-
                   {/* Connection lines between Phase 1 and Phase 2 */}
                   {allPatches
                     .filter(p => p.gameId === gameId)
@@ -1816,12 +1761,10 @@ export function TimelineView() {
                     .filter((n) => n.gameId === gameId && n.date >= rangeStart)
                     .map((node, nodeIndex) => {
                       const nx = dateToX(node.date, rangeStart, monthWidth)
-                      // For games with sub-lanes, position nodes in top or bottom half
+                      // Support cards offset slightly below center to avoid overlap with trainee nodes
                       let nodeY = y
-                      if (hasLanes && node.bannerLane) {
-                        nodeY = node.bannerLane === "character"
-                          ? rowTop + thisRowHeight * 0.25
-                          : rowTop + thisRowHeight * 0.75
+                      if (node.bannerLane === "support") {
+                        nodeY = rowTop + thisRowHeight * 0.65
                       }
                       return (
                         <TimelineNodeDot
