@@ -411,7 +411,7 @@ export function Dashboard() {
                           textTransform: "uppercase",
                         }}
                       >
-                        {umaBannerLane === "support" ? "SUPPORT" : "UMA"}
+                        LB{card.entry?.dupeCount ?? 0}
                       </span>
                     )}
                   </div>
