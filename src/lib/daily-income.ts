@@ -78,6 +78,12 @@ export function projectIncomeUntil(
 
   const totalDays = Math.max(0, Math.floor((targetDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)))
 
+  // For event-based rewards (patch day, livestream), use end of target day
+  // so that rewards occurring later in the day still count.
+  // e.g., target = Apr 22 00:00, patch reward at 11 AM should still be included.
+  const targetEndOfDay = new Date(targetDate)
+  targetEndOfDay.setHours(23, 59, 59, 999)
+
   let income = 0
   let bonusPullItems = 0
   let bonusWeaponPullItems = 0
@@ -145,7 +151,7 @@ export function projectIncomeUntil(
       // Patch day reward: awarded at 11:00 AM on patch start day
       const patchRewardTime = new Date(patchStart)
       patchRewardTime.setHours(PATCH_DAY_HOUR, 0, 0, 0)
-      if (patchRewardTime > now && patchRewardTime <= targetDate) {
+      if (patchRewardTime > now && patchRewardTime <= targetEndOfDay) {
         if (gameId === "wuwa") {
           bonusPullItems += WUWA_PATCH_TIDES
           bonusWeaponPullItems += WUWA_PATCH_TIDES
@@ -158,7 +164,7 @@ export function projectIncomeUntil(
       const livestreamDate = new Date(patchStart)
       livestreamDate.setDate(livestreamDate.getDate() + config.patchCycle.livestreamOffsetDays)
       livestreamDate.setHours(LIVESTREAM_HOUR, 0, 0, 0)
-      if (livestreamDate > now && livestreamDate <= targetDate) {
+      if (livestreamDate > now && livestreamDate <= targetEndOfDay) {
         income += LIVESTREAM_CODES
       }
     }
