@@ -76,8 +76,7 @@ export function projectIncomeUntil(
   const zero: ProjectedIncome = { currency: 0, pullItems: 0, weaponPullItems: 0 }
   if (targetDate <= now) return zero
 
-  const totalDays = Math.floor((targetDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000))
-  if (totalDays <= 0) return zero
+  const totalDays = Math.max(0, Math.floor((targetDate.getTime() - now.getTime()) / (24 * 60 * 60 * 1000)))
 
   let income = 0
   let bonusPullItems = 0
@@ -137,12 +136,16 @@ export function projectIncomeUntil(
     const LIVESTREAM_CODES = 300
     const PATCH_DAY_CURRENCY = 600 // Genshin, HSR, ZZZ
     const WUWA_PATCH_TIDES = 7    // WuWa gives 7 Radiant Tide + 7 Forging Tide instead
+    const PATCH_DAY_HOUR = 11     // Patch day currency available at 11:00 AM
+    const LIVESTREAM_HOUR = 20    // Livestream codes available at 8:00 PM
 
     for (const [key, patchStart] of patchStarts) {
       if (!key.startsWith(gameId + ":")) continue
 
-      // Patch day reward: awarded on patch start day
-      if (patchStart > now && patchStart <= targetDate) {
+      // Patch day reward: awarded at 11:00 AM on patch start day
+      const patchRewardTime = new Date(patchStart)
+      patchRewardTime.setHours(PATCH_DAY_HOUR, 0, 0, 0)
+      if (patchRewardTime > now && patchRewardTime <= targetDate) {
         if (gameId === "wuwa") {
           bonusPullItems += WUWA_PATCH_TIDES
           bonusWeaponPullItems += WUWA_PATCH_TIDES
@@ -151,9 +154,10 @@ export function projectIncomeUntil(
         }
       }
 
-      // Livestream codes: awarded on livestream day (offset from patch start)
+      // Livestream codes: awarded at 8:00 PM on livestream day
       const livestreamDate = new Date(patchStart)
       livestreamDate.setDate(livestreamDate.getDate() + config.patchCycle.livestreamOffsetDays)
+      livestreamDate.setHours(LIVESTREAM_HOUR, 0, 0, 0)
       if (livestreamDate > now && livestreamDate <= targetDate) {
         income += LIVESTREAM_CODES
       }
