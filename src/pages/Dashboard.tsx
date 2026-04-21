@@ -68,6 +68,9 @@ export function Dashboard() {
   // Find next upcoming registered character per game
   const upcomingCards = useMemo(() => {
     const now = new Date()
+    // Use start of today so targets persist through their banner day
+    // and shift to the next target at midnight of the following day
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const rangeEnd = new Date(now)
     rangeEnd.setMonth(rangeEnd.getMonth() + 12)
 
@@ -84,8 +87,9 @@ export function Dashboard() {
       const nodes = patchesToNodes(patches)
 
       // Find the first future node that has a registered character
+      // Uses start of today so the target stays visible through the entire banner day
       const futureNodes = nodes
-        .filter((n) => n.date >= now)
+        .filter((n) => n.date >= today)
         .sort((a, b) => a.date.getTime() - b.date.getTime())
 
       let found: TimelineNode | null = null
@@ -133,7 +137,7 @@ export function Dashboard() {
     // Uma: find next target from timeline entries directly (no patch cycle)
     const umaEntries = entries
       .filter((e) => e.gameId === "uma" && e.characterName)
-      .filter((e) => new Date(e.startDate) >= now)
+      .filter((e) => new Date(e.startDate) >= today)
       .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
 
     const umaTarget = umaEntries[0]
