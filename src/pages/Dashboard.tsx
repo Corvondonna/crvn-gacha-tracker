@@ -435,38 +435,54 @@ export function Dashboard() {
                 {/* Divider */}
                 <div style={{ width: 1, height: 32, background: "hsla(0,0%,100%,0.06)", flexShrink: 0 }} />
 
-                {/* Pity counters */}
-                <div style={{ textAlign: "center", minWidth: 64, flexShrink: 0 }}>
-                  <div style={{ fontSize: 10, color: "hsl(var(--muted-foreground))", marginBottom: 4 }}>
-                    {isUma ? "Spark" : "Pity"}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 14,
-                      fontWeight: 700,
-                      color: "hsl(var(--foreground))",
-                      fontVariantNumeric: "tabular-nums",
-                    }}
-                  >
-                    {isUma ? (
-                      `${umaBannerLane === "support" ? (card.resource?.supportSparkCount ?? 0) : (card.resource?.charSparkCount ?? 0)}/${game.sparkThreshold}`
-                    ) : (
-                      <>
-                        <span>{card.resource?.currentPity ?? 0}/{game.pity5Star}</span>
-                        {isPullingWeapon && (
-                          <span style={{ fontSize: 11, color: "hsl(var(--muted-foreground))", marginLeft: 4 }}>
-                            W:{card.resource?.weaponCurrentPity ?? 0}/{game.weaponPity}
-                          </span>
-                        )}
-                      </>
-                    )}
-                  </div>
-                  {!isUma && (
-                    <div style={{ fontSize: 9, color: accent, marginTop: 2, fontWeight: 600 }}>
-                      {(card.resource?.isGuaranteed ?? false) ? "GUARANTEED" : "50/50"}
+                {/* Pity / Spark counters */}
+                {isUma ? (
+                  <>
+                    <div style={{ textAlign: "center", minWidth: 56, flexShrink: 0 }}>
+                      <div style={{ fontSize: 10, color: "hsl(var(--muted-foreground))", marginBottom: 4 }}>
+                        Trainee
+                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "hsl(var(--foreground))", fontVariantNumeric: "tabular-nums" }}>
+                        {card.resource?.charSparkCount ?? 0}/{game.sparkThreshold}
+                      </div>
                     </div>
-                  )}
-                </div>
+                    <div style={{ width: 1, height: 32, background: "hsla(0,0%,100%,0.06)", flexShrink: 0 }} />
+                    <div style={{ textAlign: "center", minWidth: 56, flexShrink: 0 }}>
+                      <div style={{ fontSize: 10, color: "hsl(var(--muted-foreground))", marginBottom: 4 }}>
+                        Support
+                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "hsl(var(--foreground))", fontVariantNumeric: "tabular-nums" }}>
+                        {card.resource?.supportSparkCount ?? 0}/{game.sparkThreshold}
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div style={{ textAlign: "center", minWidth: 56, flexShrink: 0 }}>
+                      <div style={{ fontSize: 10, color: "hsl(var(--muted-foreground))", marginBottom: 4 }}>
+                        Char Pity
+                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "hsl(var(--foreground))", fontVariantNumeric: "tabular-nums" }}>
+                        {card.resource?.currentPity ?? 0}/{game.pity5Star}
+                      </div>
+                      <div style={{ fontSize: 9, color: accent, marginTop: 2, fontWeight: 600 }}>
+                        {(card.resource?.isGuaranteed ?? false) ? "GUARANTEED" : "50/50"}
+                      </div>
+                    </div>
+                    <div style={{ width: 1, height: 32, background: "hsla(0,0%,100%,0.06)", flexShrink: 0 }} />
+                    <div style={{ textAlign: "center", minWidth: 56, flexShrink: 0 }}>
+                      <div style={{ fontSize: 10, color: "hsl(var(--muted-foreground))", marginBottom: 4 }}>
+                        Wpn Pity
+                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "hsl(var(--foreground))", fontVariantNumeric: "tabular-nums" }}>
+                        {card.resource?.weaponCurrentPity ?? 0}/{game.weaponPity}
+                      </div>
+                      <div style={{ fontSize: 9, color: accent, marginTop: 2, fontWeight: 600 }}>
+                        {(card.resource?.weaponIsGuaranteed ?? false) ? "GUARANTEED" : "50/50"}
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 {/* Divider */}
                 <div style={{ width: 1, height: 32, background: "hsla(0,0%,100%,0.06)", flexShrink: 0 }} />
