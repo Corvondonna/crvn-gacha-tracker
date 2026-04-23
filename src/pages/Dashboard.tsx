@@ -435,10 +435,46 @@ export function Dashboard() {
                 {/* Divider */}
                 <div style={{ width: 1, height: 32, background: "hsla(0,0%,100%,0.06)", flexShrink: 0 }} />
 
-                {/* Pulls */}
+                {/* Pity counters */}
                 <div style={{ textAlign: "center", minWidth: 64, flexShrink: 0 }}>
                   <div style={{ fontSize: 10, color: "hsl(var(--muted-foreground))", marginBottom: 4 }}>
-                    Pulls
+                    {isUma ? "Spark" : "Pity"}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 700,
+                      color: "hsl(var(--foreground))",
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    {isUma ? (
+                      `${umaBannerLane === "support" ? (card.resource?.supportSparkCount ?? 0) : (card.resource?.charSparkCount ?? 0)}/${game.sparkThreshold}`
+                    ) : (
+                      <>
+                        <span>{card.resource?.currentPity ?? 0}/{game.pity5Star}</span>
+                        {isPullingWeapon && (
+                          <span style={{ fontSize: 11, color: "hsl(var(--muted-foreground))", marginLeft: 4 }}>
+                            W:{card.resource?.weaponCurrentPity ?? 0}/{game.weaponPity}
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </div>
+                  {!isUma && (
+                    <div style={{ fontSize: 9, color: accent, marginTop: 2, fontWeight: 600 }}>
+                      {(card.resource?.isGuaranteed ?? false) ? "GUARANTEED" : "50/50"}
+                    </div>
+                  )}
+                </div>
+
+                {/* Divider */}
+                <div style={{ width: 1, height: 32, background: "hsla(0,0%,100%,0.06)", flexShrink: 0 }} />
+
+                {/* Estimated Pulls */}
+                <div style={{ textAlign: "center", minWidth: 64, flexShrink: 0 }}>
+                  <div style={{ fontSize: 10, color: "hsl(var(--muted-foreground))", marginBottom: 4 }}>
+                    Est. Pulls
                   </div>
                   <div
                     style={{
