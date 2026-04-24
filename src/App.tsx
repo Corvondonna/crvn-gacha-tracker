@@ -7,15 +7,18 @@ import { Pulls } from "@/pages/Pulls"
 import { Resources } from "@/pages/Resources"
 import { accumulateDailyIncome, type IncomeAccumulation } from "@/lib/daily-income"
 import { claimCombatRewards, reverseCombatRewardInflation, type CombatRewardResult } from "@/lib/combat-rewards"
+import { accumulateEventRewards, type EventRewardResult } from "@/lib/event-rewards"
 import { generatePatchSeries } from "@/lib/timeline"
 import { PATCH_ANCHORS } from "@/data/patch-anchors"
 import { IncomeToast } from "@/components/ui/income-toast"
 import { CombatRewardToast } from "@/components/ui/combat-reward-toast"
+import { EventRewardToast } from "@/components/ui/event-reward-toast"
 
 function App() {
   const accumulated = useRef(false)
   const [incomeItems, setIncomeItems] = useState<IncomeAccumulation[]>([])
   const [combatItems, setCombatItems] = useState<CombatRewardResult[]>([])
+  const [eventItems, setEventItems] = useState<EventRewardResult[]>([])
 
   useEffect(() => {
     if (accumulated.current) return
@@ -43,6 +46,9 @@ function App() {
       claimCombatRewards(patchStarts).then((results) => {
         if (results.length > 0) setCombatItems(results)
       })
+      accumulateEventRewards(patchStarts).then((results) => {
+        if (results.length > 0) setEventItems(results)
+      })
     })
   }, [])
 
@@ -59,6 +65,7 @@ function App() {
       </Routes>
       <IncomeToast items={incomeItems} />
       <CombatRewardToast items={combatItems} />
+      <EventRewardToast items={eventItems} />
     </>
   )
 }

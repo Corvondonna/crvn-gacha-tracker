@@ -89,12 +89,25 @@ export interface CombatRewardClaim {
   claimedAt: string
 }
 
+/** Tracks which patch day / livestream events have been claimed */
+export interface EventRewardClaim {
+  id?: number
+  /** Unique key: "gameId:version:eventType" */
+  eventKey: string
+  gameId: GameId
+  eventType: "patch-day" | "livestream"
+  version: string
+  amount: number
+  claimedAt: string
+}
+
 const db = new Dexie("CrvnGachaTracker") as Dexie & {
   pulls: EntityTable<PullRecord, "id">
   timeline: EntityTable<TimelineEntry, "id">
   resources: EntityTable<ResourceSnapshot, "id">
   characters: EntityTable<CharacterRegistration, "id">
   combatClaims: EntityTable<CombatRewardClaim, "id">
+  eventClaims: EntityTable<EventRewardClaim, "id">
 }
 
 db.version(1).stores({
@@ -198,6 +211,15 @@ db.version(8).stores({
     if (entry.charSparkCount === undefined) entry.charSparkCount = 0
     if (entry.supportSparkCount === undefined) entry.supportSparkCount = 0
   })
+})
+
+db.version(9).stores({
+  pulls: "++id, gameId, bannerType, timestamp, rarity",
+  timeline: "++id, gameId, version, startDate, bannerLane",
+  resources: "++id, gameId, updatedAt",
+  characters: "++id, gameId, displayName, internalId",
+  combatClaims: "++id, modeId, resetDate",
+  eventClaims: "++id, eventKey, gameId",
 })
 
 export { db }
