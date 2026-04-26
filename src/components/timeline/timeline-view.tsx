@@ -16,6 +16,7 @@ import { projectIncomeUntil } from "@/lib/daily-income"
 import { COMBAT_MODES, getCombatModeResets, type CombatMode, type CombatIcon } from "@/data/combat-modes"
 import { getCombatNodesVisible, getWeeklyNodesVisible, getGameVisibility } from "@/components/layout/sidebar"
 import { UMA_SCENARIOS } from "@/data/uma-scenarios"
+import { pushToCloud } from "@/lib/sync"
 import { NodeEditor } from "./node-editor"
 
 const BASE_MONTH_WIDTH = 240
@@ -1372,6 +1373,7 @@ export function TimelineView() {
           pullingWeapon: false,
         })
       }
+      pushToCloud().catch((err) => console.error("Cloud sync failed:", err))
       setDataVersion((v) => v + 1)
     },
     []

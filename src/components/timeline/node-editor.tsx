@@ -3,6 +3,7 @@ import { GAMES, type GameId } from "@/lib/games"
 import { db, type TimelineEntry, type ResourceSnapshot } from "@/lib/db"
 import { computeCharacterProbability, computeCombinedProbability, computeSparkProbability, type ProbabilityResult } from "@/lib/probability"
 import { projectIncomeUntil } from "@/lib/daily-income"
+import { pushToCloud } from "@/lib/sync"
 import { DatePicker } from "@/components/ui/date-picker"
 
 interface NodeEditorProps {
@@ -295,6 +296,9 @@ export function NodeEditor({ gameId, version, phase, date: initialDate, onClose,
       await db.timeline.add(entry as TimelineEntry)
     }
 
+    // Sync to cloud (includes portrait upload)
+    pushToCloud().catch((err) => console.error("Cloud sync failed:", err))
+
     onSave()
     onClose()
   }
@@ -302,6 +306,7 @@ export function NodeEditor({ gameId, version, phase, date: initialDate, onClose,
   const handleDelete = async () => {
     if (existingId) {
       await db.timeline.delete(existingId)
+      pushToCloud().catch((err) => console.error("Cloud sync failed:", err))
       onSave()
       onClose()
     }

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { GAMES, type GameId } from "@/lib/games"
 import { db, type ResourceSnapshot } from "@/lib/db"
+import { pushToCloud } from "@/lib/sync"
 import { DatePicker } from "@/components/ui/date-picker"
 
 function NumField({
@@ -220,6 +221,8 @@ export function GameResourceCard({ gameId, onSave }: GameResourceCardProps) {
 
     // Always create a new snapshot (history tracking)
     await db.resources.add(snapshot as ResourceSnapshot)
+
+    pushToCloud().catch((err) => console.error("Cloud sync failed:", err))
 
     setDirty(false)
     onSave?.()
