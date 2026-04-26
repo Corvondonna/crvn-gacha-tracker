@@ -33,29 +33,19 @@ export async function pullFromCloud(): Promise<void> {
     await db.resources.bulkAdd(mapped as unknown as ResourceSnapshot[])
   }
 
-  // --- Timeline ---
+  // --- Timeline (data first, portraits downloaded in background) ---
   const { data: cloudTimeline } = await supabase.from("timeline").select("*")
+  const portraitDownloads: { dexieId: number; url: string }[] = []
   if (cloudTimeline && cloudTimeline.length > 0) {
     await db.timeline.clear()
     for (const t of cloudTimeline) {
-      // Download portrait from Storage if URL exists
-      let portraitBlob: Blob | null = null
-      if (t.character_portrait_url) {
-        try {
-          const { data } = await supabase.storage
-            .from("portraits")
-            .download(t.character_portrait_url)
-          if (data) portraitBlob = data
-        } catch { /* portrait missing, skip */ }
-      }
-
-      await db.timeline.add({
+      const dexieId = await db.timeline.add({
         gameId: t.game_id,
         version: t.version,
         phase: t.phase,
         startDate: t.start_date,
         characterName: t.character_name,
-        characterPortrait: portraitBlob,
+        characterPortrait: null, // filled in background
         valueTier: t.value_tier,
         isSpeculation: t.is_speculation,
         isPriority: t.is_priority,
@@ -67,6 +57,10 @@ export async function pullFromCloud(): Promise<void> {
         sparkCount: t.spark_count ?? undefined,
         dupeCount: t.dupe_count ?? undefined,
       } as unknown as TimelineEntry)
+
+      if (t.character_portrait_url && dexieId) {
+        portraitDownloads.push({ dexieId: dexieId as number, url: t.character_portrait_url })
+      }
     }
   }
 
@@ -135,6 +129,36 @@ export async function pullFromCloud(): Promise<void> {
       _cloudId: e.id,
     }))
     await db.eventClaims.bulkAdd(mapped as unknown as EventRewardClaim[])
+  }
+
+  // Start background portrait downloads (non-blocking)
+  if (portraitDownloads.length > 0) {
+    downloadPortraitsInBackground(portraitDownloads)
+  }
+}
+
+/**
+ * Downloads portrait blobs from Supabase Storage in parallel
+ * and updates Dexie entries as they arrive. Runs after the page loads.
+ */
+async function downloadPortraitsInBackground(
+  downloads: { dexieId: number; url: string }[]
+): Promise<void> {
+  const BATCH_SIZE = 5
+  for (let i = 0; i < downloads.length; i += BATCH_SIZE) {
+    const batch = downloads.slice(i, i + BATCH_SIZE)
+    await Promise.all(
+      batch.map(async ({ dexieId, url }) => {
+        try {
+          const { data } = await supabase.storage
+            .from("portraits")
+            .download(url)
+          if (data) {
+            await db.timeline.update(dexieId, { characterPortrait: data })
+          }
+        } catch { /* portrait missing, skip */ }
+      })
+    )
   }
 }
 
