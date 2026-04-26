@@ -37,26 +37,37 @@ export async function pullFromCloud(): Promise<void> {
   const { data: cloudTimeline } = await supabase.from("timeline").select("*")
   if (cloudTimeline && cloudTimeline.length > 0) {
     await db.timeline.clear()
-    const mapped = cloudTimeline.map(t => ({
-      gameId: t.game_id,
-      version: t.version,
-      phase: t.phase,
-      startDate: t.start_date,
-      characterName: t.character_name,
-      characterPortrait: null, // portraits handled via Storage
-      valueTier: t.value_tier,
-      isSpeculation: t.is_speculation,
-      isPriority: t.is_priority,
-      pullStatus: t.pull_status,
-      pullingWeapon: t.pulling_weapon,
-      bannerLane: t.banner_lane ?? undefined,
-      bannerDurationDays: t.banner_duration_days ?? undefined,
-      rateUpPercent: t.rate_up_percent ?? undefined,
-      sparkCount: t.spark_count ?? undefined,
-      dupeCount: t.dupe_count ?? undefined,
-      _cloudId: t.id,
-    }))
-    await db.timeline.bulkAdd(mapped as unknown as TimelineEntry[])
+    for (const t of cloudTimeline) {
+      // Download portrait from Storage if URL exists
+      let portraitBlob: Blob | null = null
+      if (t.character_portrait_url) {
+        try {
+          const { data } = await supabase.storage
+            .from("portraits")
+            .download(t.character_portrait_url)
+          if (data) portraitBlob = data
+        } catch { /* portrait missing, skip */ }
+      }
+
+      await db.timeline.add({
+        gameId: t.game_id,
+        version: t.version,
+        phase: t.phase,
+        startDate: t.start_date,
+        characterName: t.character_name,
+        characterPortrait: portraitBlob,
+        valueTier: t.value_tier,
+        isSpeculation: t.is_speculation,
+        isPriority: t.is_priority,
+        pullStatus: t.pull_status,
+        pullingWeapon: t.pulling_weapon,
+        bannerLane: t.banner_lane ?? undefined,
+        bannerDurationDays: t.banner_duration_days ?? undefined,
+        rateUpPercent: t.rate_up_percent ?? undefined,
+        sparkCount: t.spark_count ?? undefined,
+        dupeCount: t.dupe_count ?? undefined,
+      } as unknown as TimelineEntry)
+    }
   }
 
   // --- Pulls ---
@@ -163,24 +174,41 @@ export async function pushToCloud(): Promise<void> {
   const localTimeline = await db.timeline.toArray()
   await supabase.from("timeline").delete().neq("id", 0)
   if (localTimeline.length > 0) {
-    const mapped = localTimeline.map(t => ({
-      game_id: t.gameId,
-      version: t.version,
-      phase: t.phase,
-      start_date: t.startDate,
-      character_name: t.characterName,
-      character_portrait_url: null,
-      value_tier: t.valueTier,
-      is_speculation: t.isSpeculation,
-      is_priority: t.isPriority,
-      pull_status: t.pullStatus,
-      pulling_weapon: t.pullingWeapon,
-      banner_lane: t.bannerLane ?? null,
-      banner_duration_days: t.bannerDurationDays ?? null,
-      rate_up_percent: t.rateUpPercent ?? null,
-      spark_count: t.sparkCount ?? null,
-      dupe_count: t.dupeCount ?? null,
-    }))
+    const mapped = []
+    for (const t of localTimeline) {
+      let portraitPath: string | null = null
+
+      // Upload portrait blob to Storage if present
+      if (t.characterPortrait) {
+        const safeName = (t.characterName ?? "unknown").replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase()
+        portraitPath = `timeline/${t.gameId}/${t.version}-p${t.phase}-${safeName}.png`
+        await supabase.storage
+          .from("portraits")
+          .upload(portraitPath, t.characterPortrait, {
+            upsert: true,
+            contentType: "image/png",
+          })
+      }
+
+      mapped.push({
+        game_id: t.gameId,
+        version: t.version,
+        phase: t.phase,
+        start_date: t.startDate,
+        character_name: t.characterName,
+        character_portrait_url: portraitPath,
+        value_tier: t.valueTier,
+        is_speculation: t.isSpeculation,
+        is_priority: t.isPriority,
+        pull_status: t.pullStatus,
+        pulling_weapon: t.pullingWeapon,
+        banner_lane: t.bannerLane ?? null,
+        banner_duration_days: t.bannerDurationDays ?? null,
+        rate_up_percent: t.rateUpPercent ?? null,
+        spark_count: t.sparkCount ?? null,
+        dupe_count: t.dupeCount ?? null,
+      })
+    }
     await supabase.from("timeline").insert(mapped)
   }
 
@@ -269,4 +297,17 @@ export async function localHasData(): Promise<boolean> {
   const resourceCount = await db.resources.count()
   const timelineCount = await db.timeline.count()
   return resourceCount > 0 || timelineCount > 0
+}
+
+/**
+ * Checks if cloud timeline entries have any portrait URLs set.
+ * Used to detect if portraits have been synced to Storage yet.
+ */
+export async function cloudHasPortraits(): Promise<boolean> {
+  const { data } = await supabase
+    .from("timeline")
+    .select("character_portrait_url")
+    .not("character_portrait_url", "is", null)
+    .limit(1)
+  return (data?.length ?? 0) > 0
 }

@@ -7,7 +7,7 @@ import { Pulls } from "@/pages/Pulls"
 import { Resources } from "@/pages/Resources"
 import { Login } from "@/pages/Login"
 import { useAuth } from "@/lib/auth"
-import { pullFromCloud, pushToCloud, cloudHasData, localHasData } from "@/lib/sync"
+import { pullFromCloud, pushToCloud, cloudHasData, localHasData, cloudHasPortraits } from "@/lib/sync"
 import { accumulateDailyIncome, type IncomeAccumulation } from "@/lib/daily-income"
 import { claimCombatRewards, reverseCombatRewardInflation, type CombatRewardResult } from "@/lib/combat-rewards"
 import { accumulateEventRewards, type EventRewardResult } from "@/lib/event-rewards"
@@ -43,9 +43,15 @@ function AppContent() {
           // First time with cloud: push local data up
           await pushToCloud()
         } else if (hasCloud && hasLocal) {
-          // Both exist: cloud is source of truth, pull down
-          // (local accumulations will run after and push on next sync)
-          await pullFromCloud()
+          // Both exist: check if cloud is missing portraits
+          const hasPortraits = await cloudHasPortraits()
+          if (!hasPortraits) {
+            // Local has portrait blobs that cloud doesn't. Push first to seed storage.
+            await pushToCloud()
+          } else {
+            // Cloud is complete. Pull down.
+            await pullFromCloud()
+          }
         }
         // If neither has data, nothing to sync
       } catch (err) {
