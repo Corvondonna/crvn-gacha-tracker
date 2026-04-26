@@ -1,6 +1,6 @@
 # crvn-gacha-tracker
 
-Personal gacha game tracker for managing pull history, resources, and release timelines across four games.
+Personal gacha game tracker for managing pull history, resources, and release timelines across five games.
 
 ## Games Tracked
 
@@ -8,6 +8,7 @@ Personal gacha game tracker for managing pull history, resources, and release ti
 2. **Honkai Star Rail** (HSR) - Turn-based RPG, ~6-week patch cycle, dual-phase banners
 3. **Zenless Zone Zero** (ZZZ) - Instance-based action RPG, HoYoverse dual-phase structure
 4. **Wuthering Waves** (WuWa) - Open-world action RPG, variable patch cadence trending toward ~6 weeks
+5. **Umamusume: Pretty Derby** (Uma) - Horse girl training gacha, manual banner dates, spark system (200 pulls = free pick)
 
 ## Core Features
 
@@ -79,40 +80,50 @@ Per-game dashboard covering:
 - **Routing:** React Router v6
 - **UI:** shadcn/ui + Tailwind CSS v3
 - **Charts:** Chart.js + react-chartjs-2
-- **Persistence:** IndexedDB via Dexie.js (pull history, resource data), localStorage (preferences, theme)
+- **Auth:** Supabase Auth with GitHub OAuth (single authorized user)
+- **Cloud DB:** Supabase Postgres with Row Level Security (project: `corvon-gacha-lab`)
+- **Cloud Storage:** Supabase Storage (`portraits` bucket for character portrait blobs)
+- **Local Cache:** IndexedDB via Dexie.js (mirrors cloud data for fast reads)
+- **Preferences:** localStorage (game visibility toggles, theme, combat toggle flags)
 - **Deployment:** Vercel with GitHub auto-build on push (static SPA)
 - **Runtime:** Node v24.14.1 (user local), sandbox uses v22.x
 
-## Project Structure (Planned)
+## Project Structure
 
 ```
 crvn-gacha-tracker/
 ├── public/
-│   └── assets/           # Game icons, character images
+│   └── assets/              # Game icons, character images
 ├── src/
-│   ├── pages/            # Route-level components (one per view)
-│   │   ├── Dashboard.tsx # Landing page / game overview
-│   │   ├── Timeline.tsx  # Timeline feature
-│   │   ├── Pulls.tsx     # Pull tracker feature
-│   │   └── Resources.tsx # Resource management feature
+│   ├── pages/               # Route-level components (one per view)
+│   │   ├── Dashboard.tsx    # Landing page / game overview
+│   │   ├── Timeline.tsx     # Timeline feature
+│   │   ├── Pulls.tsx        # Pull tracker feature
+│   │   ├── Resources.tsx    # Resource management feature
+│   │   └── Login.tsx        # GitHub OAuth login page
 │   ├── components/
-│   │   ├── ui/           # shadcn/ui components
-│   │   ├── layout/       # App shell, navbar, sidebar
-│   │   ├── timeline/     # Timeline-specific components
-│   │   ├── pulls/        # Pull tracker components
-│   │   └── resources/    # Resource management components
+│   │   ├── ui/              # shadcn/ui components, toast components
+│   │   ├── layout/          # App shell, navbar, sidebar (with sign-out)
+│   │   ├── timeline/        # Timeline-specific components
+│   │   ├── pulls/           # Pull tracker components
+│   │   └── resources/       # Resource management components
 │   ├── lib/
-│   │   ├── games.ts      # Game definitions, constants, currency types
-│   │   ├── pity.ts       # Pity calculation logic
-│   │   ├── db.ts         # Dexie.js database schema and instance
-│   │   ├── parsers/      # PowerShell output parsers per game
-│   │   └── utils.ts      # Shared utilities (cn(), etc.)
-│   ├── hooks/            # Custom React hooks
-│   ├── types/            # TypeScript type definitions
-│   ├── data/             # Static game data (banner schedules, character lists)
-│   ├── App.tsx           # Root component with React Router
-│   └── main.tsx          # Vite entry point
-├── index.html            # Vite HTML entry
+│   │   ├── games.ts         # Game definitions, constants, currency types
+│   │   ├── probability.ts   # Pity, convolution, binomial probability math
+│   │   ├── db.ts            # Dexie.js database schema and instance
+│   │   ├── supabase.ts      # Supabase client initialization
+│   │   ├── auth.tsx         # AuthProvider context and useAuth hook
+│   │   ├── sync.ts          # Dexie <-> Supabase bi-directional sync
+│   │   ├── daily-income.ts  # Daily/event income projection and accumulation
+│   │   ├── combat-rewards.ts # Combat mode reward accumulation
+│   │   ├── event-rewards.ts # Patch day/livestream reward accumulation
+│   │   ├── timeline.ts      # Patch series generation, version skip logic
+│   │   └── utils.ts         # Shared utilities (cn(), etc.)
+│   ├── data/                # Static game data (patch anchors, combat modes)
+│   ├── App.tsx              # Auth guard, sync, accumulation orchestration
+│   └── main.tsx             # Vite entry point with AuthProvider
+├── supabase-schema.sql      # SQL for tables, RLS policies, storage bucket
+├── index.html
 ├── CLAUDE.md
 ├── package.json
 ├── tailwind.config.ts
@@ -392,20 +403,30 @@ Reference format from paimon.moe JSON export. Other tracker sites (HSR, ZZZ, WuW
 
 ## Persistence Strategy
 
-Two-tier storage, all client-side. No backend in v1.
+Two-tier storage with cloud sync.
 
-**IndexedDB (via Dexie.js)** for structured, growing data:
+**Supabase Postgres** (source of truth):
+- All tables (resources, timeline, pulls, characters, combat_claims, event_claims) with Row Level Security
+- Supabase Storage `portraits` bucket for character portrait blobs
+- Data survives browser cache clears and works across devices
+
+**IndexedDB (via Dexie.js)** as local cache:
+- Mirrors cloud data for fast reads and offline operation
 - Pull history logs (character, weapon, standard banners per game)
 - Resource snapshots (currency counts, pity counters, 50/50 status)
 - Timeline entries (patch dates, banner phases, event schedules)
 - Character target lists with estimated release dates
 
 **localStorage** for lightweight preferences:
-- Active game selection
+- Game visibility toggles
+- Combat/weekly node visibility
 - Theme preference
 - UI state (collapsed panels, last viewed tab)
 
-**Future (v2+):** Cloud persistence via Supabase or Vercel Postgres for cross-device sync. Requires adding auth.
+**Sync flow** (`src/lib/sync.ts`):
+- On login: if cloud has data, pull to Dexie. If only local exists, push to cloud. If cloud missing portraits, push local first to seed Storage.
+- After daily/combat/event accumulations: push updated data back to cloud.
+- Portrait blobs: uploaded to `portraits/timeline/{gameId}/{version}-p{phase}-{name}.png` on push, downloaded back to Dexie on pull.
 
 ## Design Decisions
 
@@ -417,7 +438,7 @@ Two-tier storage, all client-side. No backend in v1.
 - Zenless Zone Zero: TBD (green/teal tones suggested)
 - Wuthering Waves: TBD (purple/violet tones suggested)
 
-**Timeline layout:** Horizontal scrolling view with four game rows (one per game), shared month axis across top. Each patch phase represented by a circular node with character portrait, date, and version label. Includes a vertical "today" marker. Node size based on character value (larger = limited 5-star, smaller = 4-star/standard/rerun). "Speculation" tags for unconfirmed content.
+**Timeline layout:** Horizontal scrolling view with five game rows (one per game, toggleable via sidebar), shared month axis across top. Phase 1 nodes are circles, Phase 2 "limited" tier nodes are hexagons. Includes a vertical "today" marker. Node size based on character value (larger = limited 5-star, smaller = 4-star/standard/rerun). "Speculation" tags for unconfirmed content. Uma uses a single merged row with support cards vertically offset below trainee nodes.
 
 **Character registration:** Users manually register characters with: display name, game association, release date (patch + phase), rarity/value tier (affects node size), and optional portrait upload. Portraits resized to 128x128 max and compressed before storing in IndexedDB. Characters without portraits show a colored initial or game icon fallback. A static lookup table ships with the app for mapping pull history IDs to character names; registered characters extend this table.
 
@@ -453,13 +474,35 @@ Permanent combat modes per game that reset on fixed schedules and award currency
 
 **Rendering:** `CombatModeIcon` component in `timeline-view.tsx` renders unique SVG icons per mode. Past nodes at 35% opacity, future at 85%, with "+reward" label below each icon.
 
+## Event Reward Accumulation
+
+Patch day and livestream rewards auto-accumulate into stored currency on app load (`src/lib/event-rewards.ts`). Uses `eventClaims` table to prevent double-counting.
+
+- **Patch day:** 600 currency at 11:00 AM on patch start (WuWa: 7 Radiant Tide + 7 Forging Tide instead)
+- **Livestream:** 300 currency at 8:00 PM, offset days after patch start (30 for HoYo, 29 for WuWa)
+
+Income projection (`src/lib/daily-income.ts`) uses `targetEndOfDay` (23:59:59.999) for event reward date comparisons so same-day events are included. Once an event passes `now`, it drops from projection and gets accumulated into the snapshot.
+
+## Auth
+
+GitHub OAuth via Supabase Auth. Single authorized user. Login page shows for unauthenticated visitors. Sign-out button in sidebar.
+
+**Key files:**
+- `src/lib/supabase.ts` - Supabase client (project URL + publishable key)
+- `src/lib/auth.tsx` - AuthProvider context, useAuth hook, GitHub OAuth flow
+- `src/pages/Login.tsx` - Login page with GitHub button
+- `src/App.tsx` - Auth guard wrapping AppContent
+
+**OAuth callback URL:** `https://tiuscycrfsmcgixvfkkz.supabase.co/auth/v1/callback`
+
 ## Development Notes
 
 - All banner structures follow a phase-based model: each patch has Phase 1 and Phase 2
 - WuWa patch cadence was irregular at launch but is stabilizing; tracker must handle flexible date ranges
 - Pull history import relies on PowerShell scripts that read local game logs; specific commands TBD
-- No user auth in v1; single-user local app
+- Auth: GitHub OAuth via Supabase, single authorized user
 - Dark theme default (matches gacha game aesthetic)
+- Uma uses manual banner dates (no patch cycle), spark system at 200 pulls, support cards with limit break 0-4
 
 ## Commands
 
@@ -485,7 +528,7 @@ git push origin main
 - TypeScript strict mode
 - File naming: kebab-case for files, PascalCase for components
 - One component per file
-- Game identifiers: "genshin", "hsr", "zzz", "wuwa" (used as keys throughout)
+- Game identifiers: "genshin", "hsr", "zzz", "wuwa", "uma" (used as keys throughout)
 - All dates stored as ISO 8601 strings
 - Currency amounts stored as integers (no floats)
 - Tailwind for all styling; no separate CSS files
