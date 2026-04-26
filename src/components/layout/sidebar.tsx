@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react"
 import { NavLink, useLocation } from "react-router-dom"
-import { Home, Calendar, History, Wallet, Swords, CalendarClock, ChevronDown, Eye, EyeOff } from "lucide-react"
+import { Home, Calendar, History, Wallet, Swords, CalendarClock, ChevronDown, Eye, EyeOff, LogOut } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { GAMES, GAME_IDS, type GameId } from "@/lib/games"
+import { useAuth } from "@/lib/auth"
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: Home },
@@ -44,6 +45,7 @@ export function getGameVisibility(): Record<GameId, boolean> {
 }
 
 export function Sidebar() {
+  const { signOut } = useAuth()
   const location = useLocation()
   const isTimeline = location.pathname === "/timeline"
   const [combatVisible, setCombatVisible] = useState(getCombatNodesVisible)
@@ -235,6 +237,19 @@ export function Sidebar() {
           </button>
         </div>
       )}
+
+      {/* Sign out */}
+      <div className="flex flex-col items-center py-4"
+        style={{ borderTop: "1px solid hsla(0, 0%, 20%, 0.4)" }}
+      >
+        <button
+          onClick={signOut}
+          title="Sign out"
+          className="w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 border border-transparent text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))] hover:border-white/5 hover:bg-white/[0.03]"
+        >
+          <LogOut size={18} strokeWidth={1.5} />
+        </button>
+      </div>
     </aside>
   )
 }
