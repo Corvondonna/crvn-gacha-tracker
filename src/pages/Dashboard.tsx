@@ -478,7 +478,7 @@ export function Dashboard() {
                         {card.resource?.weaponCurrentPity ?? 0}/{game.weaponPity}
                       </div>
                       <div style={{ fontSize: 9, color: accent, marginTop: 2, fontWeight: 600 }}>
-                        {(card.resource?.weaponIsGuaranteed ?? false) ? "GUARANTEED" : "50/50"}
+                        {(game.weaponGuaranteed || (card.resource?.weaponIsGuaranteed ?? false)) ? "GUARANTEED" : "50/50"}
                       </div>
                     </div>
                   </>
