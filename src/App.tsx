@@ -25,7 +25,7 @@ function AppContent() {
   const [eventItems, setEventItems] = useState<EventRewardResult[]>([])
   const [syncDone, setSyncDone] = useState(false)
 
-  // Sync in background on first load (no blocking screen)
+  // Sync on first load, block UI until complete to prevent race conditions
   useEffect(() => {
     if (synced.current) return
     synced.current = true
@@ -61,7 +61,6 @@ function AppContent() {
     if (accumulated.current) return
     accumulated.current = true
 
-    // Build patch start dates for patchRelative combat modes
     const now = new Date()
     const lookback = new Date(now.getFullYear(), now.getMonth() - 6, 1)
     const patchStarts = new Map<string, Date>()
@@ -88,6 +87,26 @@ function AppContent() {
       pushToCloud().catch((err) => console.error("Post-accumulation sync failed:", err))
     })
   }, [syncDone])
+
+  if (!syncDone) {
+    return (
+      <div
+        style={{
+          height: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "hsl(var(--background))",
+          color: "hsl(var(--muted-foreground))",
+          fontSize: 12,
+          fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+          letterSpacing: "1px",
+        }}
+      >
+        SYNCING...
+      </div>
+    )
+  }
 
   return (
     <>

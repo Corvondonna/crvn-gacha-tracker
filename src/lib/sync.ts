@@ -4,10 +4,27 @@ import { db, type ResourceSnapshot, type TimelineEntry, type PullRecord, type Ch
 /**
  * Pulls all data from Supabase into local Dexie tables.
  * Called on login. Clears local tables first to avoid conflicts.
+ * All 6 Supabase queries run in parallel for speed.
  */
 export async function pullFromCloud(): Promise<void> {
+  // Fetch all tables in parallel (single network round-trip batch)
+  const [
+    { data: cloudResources },
+    { data: cloudTimeline },
+    { data: cloudPulls },
+    { data: cloudCharacters },
+    { data: cloudCombatClaims },
+    { data: cloudEventClaims },
+  ] = await Promise.all([
+    supabase.from("resources").select("*"),
+    supabase.from("timeline").select("*"),
+    supabase.from("pulls").select("*"),
+    supabase.from("characters").select("*"),
+    supabase.from("combat_claims").select("*"),
+    supabase.from("event_claims").select("*"),
+  ])
+
   // --- Resources ---
-  const { data: cloudResources } = await supabase.from("resources").select("*")
   if (cloudResources && cloudResources.length > 0) {
     await db.resources.clear()
     const mapped = cloudResources.map(r => ({
@@ -34,7 +51,6 @@ export async function pullFromCloud(): Promise<void> {
   }
 
   // --- Timeline (data first, portraits downloaded in background) ---
-  const { data: cloudTimeline } = await supabase.from("timeline").select("*")
   const portraitDownloads: { dexieId: number; url: string }[] = []
   if (cloudTimeline && cloudTimeline.length > 0) {
     await db.timeline.clear()
@@ -65,7 +81,6 @@ export async function pullFromCloud(): Promise<void> {
   }
 
   // --- Pulls ---
-  const { data: cloudPulls } = await supabase.from("pulls").select("*")
   if (cloudPulls && cloudPulls.length > 0) {
     await db.pulls.clear()
     const mapped = cloudPulls.map(p => ({
@@ -84,14 +99,13 @@ export async function pullFromCloud(): Promise<void> {
   }
 
   // --- Characters ---
-  const { data: cloudCharacters } = await supabase.from("characters").select("*")
   if (cloudCharacters && cloudCharacters.length > 0) {
     await db.characters.clear()
     const mapped = cloudCharacters.map(c => ({
       gameId: c.game_id,
       displayName: c.display_name,
       internalId: c.internal_id,
-      portrait: null, // portraits handled via Storage
+      portrait: null,
       releaseVersion: c.release_version,
       releasePhase: c.release_phase,
       releaseDate: c.release_date,
@@ -102,7 +116,6 @@ export async function pullFromCloud(): Promise<void> {
   }
 
   // --- Combat Claims ---
-  const { data: cloudCombatClaims } = await supabase.from("combat_claims").select("*")
   if (cloudCombatClaims && cloudCombatClaims.length > 0) {
     await db.combatClaims.clear()
     const mapped = cloudCombatClaims.map(c => ({
@@ -116,7 +129,6 @@ export async function pullFromCloud(): Promise<void> {
   }
 
   // --- Event Claims ---
-  const { data: cloudEventClaims } = await supabase.from("event_claims").select("*")
   if (cloudEventClaims && cloudEventClaims.length > 0) {
     await db.eventClaims.clear()
     const mapped = cloudEventClaims.map(e => ({
@@ -168,41 +180,32 @@ async function downloadPortraitsInBackground(
  * Called after local changes or on a manual sync trigger.
  */
 export async function pushToCloud(): Promise<void> {
-  // --- Resources ---
-  const localResources = await db.resources.toArray()
-  await supabase.from("resources").delete().neq("id", 0) // clear all user rows (RLS scoped)
-  if (localResources.length > 0) {
-    const mapped = localResources.map(r => ({
-      game_id: r.gameId,
-      updated_at: r.updatedAt,
-      currency: r.currency,
-      pull_items: r.pullItems,
-      weapon_pull_items: r.weaponPullItems ?? 0,
-      paid_currency: r.paidCurrency ?? 0,
-      current_pity: r.currentPity,
-      is_guaranteed: r.isGuaranteed,
-      weapon_current_pity: r.weaponCurrentPity ?? 0,
-      weapon_is_guaranteed: r.weaponIsGuaranteed ?? false,
-      weapon_fate_points: r.weaponFatePoints ?? 0,
-      monthly_pass_active: r.monthlyPassActive,
-      monthly_pass_expiry: r.monthlyPassExpiry,
-      daily_commissions_active: r.dailyCommissionsActive ?? false,
-      secondary_pull_items: r.secondaryPullItems ?? 0,
-      char_spark_count: r.charSparkCount ?? 0,
-      support_spark_count: r.supportSparkCount ?? 0,
-    }))
-    await supabase.from("resources").insert(mapped)
-  }
+  // Read all local data in parallel
+  const [localResources, localTimeline, localPulls, localCharacters, localCombatClaims, localEventClaims] = await Promise.all([
+    db.resources.toArray(),
+    db.timeline.toArray(),
+    db.pulls.toArray(),
+    db.characters.toArray(),
+    db.combatClaims.toArray(),
+    db.eventClaims.toArray(),
+  ])
 
-  // --- Timeline ---
-  const localTimeline = await db.timeline.toArray()
-  await supabase.from("timeline").delete().neq("id", 0)
+  // Clear all cloud tables in parallel
+  await Promise.all([
+    supabase.from("resources").delete().neq("id", 0),
+    supabase.from("timeline").delete().neq("id", 0),
+    supabase.from("pulls").delete().neq("id", 0),
+    supabase.from("characters").delete().neq("id", 0),
+    supabase.from("combat_claims").delete().neq("id", 0),
+    supabase.from("event_claims").delete().neq("id", 0),
+  ])
+
+  // --- Timeline (sequential due to portrait uploads) ---
   if (localTimeline.length > 0) {
     const mapped = []
     for (const t of localTimeline) {
       let portraitPath: string | null = null
 
-      // Upload portrait blob to Storage if present
       if (t.characterPortrait) {
         const safeName = (t.characterName ?? "unknown").replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase()
         portraitPath = `timeline/${t.gameId}/${t.version}-p${t.phase}-${safeName}.png`
@@ -236,11 +239,34 @@ export async function pushToCloud(): Promise<void> {
     await supabase.from("timeline").insert(mapped)
   }
 
-  // --- Pulls ---
-  const localPulls = await db.pulls.toArray()
-  await supabase.from("pulls").delete().neq("id", 0)
+  // Insert remaining tables in parallel
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const insertOps: PromiseLike<any>[] = []
+
+  if (localResources.length > 0) {
+    const mapped = localResources.map(r => ({
+      game_id: r.gameId,
+      updated_at: r.updatedAt,
+      currency: r.currency,
+      pull_items: r.pullItems,
+      weapon_pull_items: r.weaponPullItems ?? 0,
+      paid_currency: r.paidCurrency ?? 0,
+      current_pity: r.currentPity,
+      is_guaranteed: r.isGuaranteed,
+      weapon_current_pity: r.weaponCurrentPity ?? 0,
+      weapon_is_guaranteed: r.weaponIsGuaranteed ?? false,
+      weapon_fate_points: r.weaponFatePoints ?? 0,
+      monthly_pass_active: r.monthlyPassActive,
+      monthly_pass_expiry: r.monthlyPassExpiry,
+      daily_commissions_active: r.dailyCommissionsActive ?? false,
+      secondary_pull_items: r.secondaryPullItems ?? 0,
+      char_spark_count: r.charSparkCount ?? 0,
+      support_spark_count: r.supportSparkCount ?? 0,
+    }))
+    insertOps.push(supabase.from("resources").insert(mapped))
+  }
+
   if (localPulls.length > 0) {
-    // Insert in batches of 500 (Supabase has row limits per request)
     for (let i = 0; i < localPulls.length; i += 500) {
       const batch = localPulls.slice(i, i + 500)
       const mapped = batch.map(p => ({
@@ -254,13 +280,10 @@ export async function pushToCloud(): Promise<void> {
         is_rate_up: p.isRateUp,
         raw_data: p.rawData ?? {},
       }))
-      await supabase.from("pulls").insert(mapped)
+      insertOps.push(supabase.from("pulls").insert(mapped))
     }
   }
 
-  // --- Characters ---
-  const localCharacters = await db.characters.toArray()
-  await supabase.from("characters").delete().neq("id", 0)
   if (localCharacters.length > 0) {
     const mapped = localCharacters.map(c => ({
       game_id: c.gameId,
@@ -272,12 +295,9 @@ export async function pushToCloud(): Promise<void> {
       release_date: c.releaseDate,
       value_tier: c.valueTier,
     }))
-    await supabase.from("characters").insert(mapped)
+    insertOps.push(supabase.from("characters").insert(mapped))
   }
 
-  // --- Combat Claims ---
-  const localCombatClaims = await db.combatClaims.toArray()
-  await supabase.from("combat_claims").delete().neq("id", 0)
   if (localCombatClaims.length > 0) {
     const mapped = localCombatClaims.map(c => ({
       mode_id: c.modeId,
@@ -285,12 +305,9 @@ export async function pushToCloud(): Promise<void> {
       amount: c.amount,
       claimed_at: c.claimedAt,
     }))
-    await supabase.from("combat_claims").insert(mapped)
+    insertOps.push(supabase.from("combat_claims").insert(mapped))
   }
 
-  // --- Event Claims ---
-  const localEventClaims = await db.eventClaims.toArray()
-  await supabase.from("event_claims").delete().neq("id", 0)
   if (localEventClaims.length > 0) {
     const mapped = localEventClaims.map(e => ({
       event_key: e.eventKey,
@@ -300,8 +317,10 @@ export async function pushToCloud(): Promise<void> {
       amount: e.amount,
       claimed_at: e.claimedAt,
     }))
-    await supabase.from("event_claims").insert(mapped)
+    insertOps.push(supabase.from("event_claims").insert(mapped))
   }
+
+  await Promise.all(insertOps)
 }
 
 /**
