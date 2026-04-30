@@ -100,6 +100,8 @@ export function Dashboard() {
           (e) => e.gameId === node.gameId && e.version === node.version && e.phase === node.phase
         )
         if (entry?.characterName) {
+          // Skip secured/failed targets so the next one becomes active
+          if (entry.pullStatus === "secured" || entry.pullStatus === "failed") continue
           found = node
           foundEntry = entry
           break
@@ -138,6 +140,7 @@ export function Dashboard() {
     const umaEntries = entries
       .filter((e) => e.gameId === "uma" && e.characterName)
       .filter((e) => new Date(e.startDate) >= today)
+      .filter((e) => e.pullStatus !== "secured" && e.pullStatus !== "failed")
       .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
 
     const umaTarget = umaEntries[0]
