@@ -167,6 +167,7 @@ export function NodeEditor({ gameId, version, phase, date: initialDate, onClose,
         .first()
 
       if (entry) {
+        console.log(`[node-editor] Loaded entry id=${entry.id}, pullStatus=${entry.pullStatus}, isPriority=${entry.isPriority}, name=${entry.characterName}`)
         setCharacterName(entry.characterName ?? "")
         setValueTier(entry.valueTier)
         setIsSpeculation(entry.isSpeculation)
@@ -291,9 +292,11 @@ export function NodeEditor({ gameId, version, phase, date: initialDate, onClose,
     }
 
     if (existingId) {
-      await db.timeline.update(existingId, entry)
+      const updated = await db.timeline.update(existingId, entry)
+      console.log(`[node-editor] Updated id=${existingId}, rows affected=${updated}, pullStatus=${pullStatus}, isPriority=${isPriority}`)
     } else {
-      await db.timeline.add(entry as TimelineEntry)
+      const newId = await db.timeline.add(entry as TimelineEntry)
+      console.log(`[node-editor] Added new entry id=${newId}, pullStatus=${pullStatus}, isPriority=${isPriority}`)
     }
 
     // Sync to cloud (includes portrait upload)

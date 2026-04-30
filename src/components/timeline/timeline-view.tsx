@@ -16,7 +16,7 @@ import { projectIncomeUntil } from "@/lib/daily-income"
 import { COMBAT_MODES, getCombatModeResets, type CombatMode, type CombatIcon } from "@/data/combat-modes"
 import { getCombatNodesVisible, getWeeklyNodesVisible, getGameVisibility } from "@/components/layout/sidebar"
 import { UMA_SCENARIOS } from "@/data/uma-scenarios"
-import { pushToCloud } from "@/lib/sync"
+import { pushToCloud, deduplicateTimeline } from "@/lib/sync"
 import { NodeEditor } from "./node-editor"
 
 const BASE_MONTH_WIDTH = 240
@@ -927,8 +927,11 @@ export function TimelineView() {
   useEffect(() => {
     if (seeded.current) return
     seeded.current = true
-    seedTimeline().then((count) => {
-      if (count > 0) setDataVersion((v) => v + 1)
+    // Deduplicate first, then seed, to ensure clean state
+    deduplicateTimeline().then((removed) => {
+      seedTimeline().then((count) => {
+        if (count > 0 || removed > 0) setDataVersion((v) => v + 1)
+      })
     })
   }, [])
 

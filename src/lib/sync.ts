@@ -143,6 +143,9 @@ export async function pullFromCloud(): Promise<void> {
     await db.eventClaims.bulkAdd(mapped as unknown as EventRewardClaim[])
   }
 
+  // Deduplicate in case cloud had duplicates
+  await deduplicateTimeline()
+
   // Start background portrait downloads (non-blocking)
   if (portraitDownloads.length > 0) {
     downloadPortraitsInBackground(portraitDownloads)
@@ -175,11 +178,66 @@ async function downloadPortraitsInBackground(
 }
 
 /**
+ * Deduplicates timeline entries in Dexie.
+ * Keeps the entry with the most user data (character name, portrait, non-default status).
+ * Removes duplicate entries that share the same gameId + version + phase.
+ */
+export async function deduplicateTimeline(): Promise<number> {
+  const entries = await db.timeline.toArray()
+  const seen = new Map<string, { id: number; score: number }>()
+  const toDelete: number[] = []
+
+  for (const e of entries) {
+    const key = `${e.gameId}:${e.version}:${e.phase}`
+    // Score entries: prefer entries with user data
+    let score = 0
+    if (e.characterName) score += 10
+    if (e.characterPortrait) score += 5
+    if (e.pullStatus && e.pullStatus !== "none") score += 3
+    if (e.isPriority) score += 2
+    if (e.pullingWeapon) score += 1
+    score += (e.id ?? 0) // tiebreak: higher ID = more recent insert
+
+    const existing = seen.get(key)
+    if (!existing) {
+      seen.set(key, { id: e.id!, score })
+    } else if (score > existing.score) {
+      toDelete.push(existing.id)
+      seen.set(key, { id: e.id!, score })
+    } else {
+      toDelete.push(e.id!)
+    }
+  }
+
+  if (toDelete.length > 0) {
+    await db.timeline.bulkDelete(toDelete)
+    console.log(`[sync] Deduplicated timeline: removed ${toDelete.length} duplicate(s)`)
+  }
+
+  return toDelete.length
+}
+
+/** Mutex to prevent overlapping pushToCloud calls from creating duplicates */
+let pushInProgress: Promise<void> | null = null
+
+/**
  * Pushes all local Dexie data to Supabase.
  * Clears cloud tables first, then inserts all local rows.
- * Called after local changes or on a manual sync trigger.
+ * Serialized: if a push is already in progress, waits for it then runs again.
  */
 export async function pushToCloud(): Promise<void> {
+  if (pushInProgress) {
+    await pushInProgress
+  }
+  pushInProgress = _pushToCloudImpl()
+  try {
+    await pushInProgress
+  } finally {
+    pushInProgress = null
+  }
+}
+
+async function _pushToCloudImpl(): Promise<void> {
   // Read all local data in parallel
   const [localResources, localTimeline, localPulls, localCharacters, localCombatClaims, localEventClaims] = await Promise.all([
     db.resources.toArray(),
