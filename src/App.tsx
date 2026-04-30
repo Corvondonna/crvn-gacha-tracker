@@ -23,41 +23,33 @@ function AppContent() {
   const [incomeItems, setIncomeItems] = useState<IncomeAccumulation[]>([])
   const [combatItems, setCombatItems] = useState<CombatRewardResult[]>([])
   const [eventItems, setEventItems] = useState<EventRewardResult[]>([])
-  const [syncStatus, setSyncStatus] = useState<"idle" | "syncing" | "done">("idle")
+  const [syncDone, setSyncDone] = useState(false)
 
-  // Sync on first load after auth
+  // Sync in background on first load (no blocking screen)
   useEffect(() => {
     if (synced.current) return
     synced.current = true
 
     async function syncData() {
-      setSyncStatus("syncing")
       try {
-        const hasCloud = await cloudHasData()
-        const hasLocal = await localHasData()
+        const [hasCloud, hasLocal] = await Promise.all([cloudHasData(), localHasData()])
 
         if (hasCloud && !hasLocal) {
-          // Fresh browser: pull cloud data down
           await pullFromCloud()
         } else if (hasLocal && !hasCloud) {
-          // First time with cloud: push local data up
           await pushToCloud()
         } else if (hasCloud && hasLocal) {
-          // Both exist: check if cloud is missing portraits
           const hasPortraits = await cloudHasPortraits()
           if (!hasPortraits) {
-            // Local has portrait blobs that cloud doesn't. Push first to seed storage.
             await pushToCloud()
           } else {
-            // Cloud is complete. Pull down.
             await pullFromCloud()
           }
         }
-        // If neither has data, nothing to sync
       } catch (err) {
         console.error("Sync failed:", err)
       }
-      setSyncStatus("done")
+      setSyncDone(true)
     }
 
     syncData()
@@ -65,7 +57,7 @@ function AppContent() {
 
   // Run accumulations after sync is done
   useEffect(() => {
-    if (syncStatus !== "done") return
+    if (!syncDone) return
     if (accumulated.current) return
     accumulated.current = true
 
@@ -82,9 +74,7 @@ function AppContent() {
       }
     }
 
-    // One-time fix: reverse combat rewards that were incorrectly added to snapshots
     reverseCombatRewardInflation().then(() => {
-      // Run all accumulations after cleanup
       accumulateDailyIncome().then((results) => {
         if (results.length > 0) setIncomeItems(results)
       })
@@ -95,28 +85,9 @@ function AppContent() {
         if (results.length > 0) setEventItems(results)
       })
 
-      // Push accumulated changes back to cloud
       pushToCloud().catch((err) => console.error("Post-accumulation sync failed:", err))
     })
-  }, [syncStatus])
-
-  if (syncStatus === "syncing") {
-    return (
-      <div
-        style={{
-          height: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "hsl(var(--background))",
-          color: "hsl(var(--muted-foreground))",
-          fontSize: 14,
-        }}
-      >
-        Syncing data...
-      </div>
-    )
-  }
+  }, [syncDone])
 
   return (
     <>
