@@ -26,7 +26,7 @@ export async function claimCombatRewards(
   // Only claim resets that happened AFTER the snapshot was saved, because the user's
   // recorded currency already accounts for everything before that point.
   const snapshotDateByGame = new Map<GameId, Date>()
-  for (const gid of ["genshin", "hsr", "zzz", "wuwa"] as GameId[]) {
+  for (const gid of ["genshin", "hsr", "zzz", "wuwa", "nte"] as GameId[]) {
     const snaps = await db.resources
       .where("gameId")
       .equals(gid)

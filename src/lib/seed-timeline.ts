@@ -80,11 +80,28 @@ const WUWA_ENTRIES: SeedEntry[] = [
   slot("wuwa", "3.4", 2, true),
 ]
 
+// Neverness to Everness
+const NTE_ENTRIES: SeedEntry[] = [
+  slot("nte", "1.0", 1),
+  slot("nte", "1.0", 2),
+  slot("nte", "1.1", 1),
+  slot("nte", "1.1", 2),
+  slot("nte", "1.2", 1, true),
+  slot("nte", "1.2", 2, true),
+  slot("nte", "1.3", 1, true),
+  slot("nte", "1.3", 2, true),
+  slot("nte", "1.4", 1, true),
+  slot("nte", "1.4", 2, true),
+  slot("nte", "1.5", 1, true),
+  slot("nte", "1.5", 2, true),
+]
+
 const ALL_ENTRIES = [
   ...GENSHIN_ENTRIES,
   ...HSR_ENTRIES,
   ...ZZZ_ENTRIES,
   ...WUWA_ENTRIES,
+  ...NTE_ENTRIES,
 ]
 
 /**

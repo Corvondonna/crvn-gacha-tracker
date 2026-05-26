@@ -27,6 +27,7 @@
   --hsr: 345 60% 45%;
   --zzz: 28 85% 58%;
   --wuwa: 250 70% 65%;
+  --nte: 175 65% 50%;
   --uma: 145 55% 48%;
 
   /* Glass effect tokens */
@@ -92,6 +93,9 @@ body {
 .glow-wuwa {
   box-shadow: 0 0 var(--glow-spread) hsla(var(--wuwa) / var(--glow-intensity));
 }
+.glow-nte {
+  box-shadow: 0 0 var(--glow-spread) hsla(var(--nte) / var(--glow-intensity));
+}
 .glow-uma {
   box-shadow: 0 0 var(--glow-spread) hsla(var(--uma) / var(--glow-intensity));
 }
@@ -112,6 +116,10 @@ body {
 .neon-wuwa {
   color: hsl(var(--wuwa));
   text-shadow: 0 0 8px hsla(var(--wuwa) / 0.5);
+}
+.neon-nte {
+  color: hsl(var(--nte));
+  text-shadow: 0 0 8px hsla(var(--nte) / 0.5);
 }
 .neon-uma {
   color: hsl(var(--uma));
@@ -134,6 +142,10 @@ body {
 .glow-border-wuwa:hover {
   border-color: hsla(var(--wuwa) / 0.5);
   box-shadow: 0 0 12px hsla(var(--wuwa) / 0.2), inset 0 0 12px hsla(var(--wuwa) / 0.05);
+}
+.glow-border-nte:hover {
+  border-color: hsla(var(--nte) / 0.5);
+  box-shadow: 0 0 12px hsla(var(--nte) / 0.2), inset 0 0 12px hsla(var(--nte) / 0.05);
 }
 .glow-border-uma:hover {
   border-color: hsla(var(--uma) / 0.5);

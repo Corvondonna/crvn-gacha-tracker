@@ -1,6 +1,6 @@
 # crvn-gacha-tracker
 
-Personal gacha game tracker for managing pull history, resources, and release timelines across five games.
+Personal gacha game tracker for managing pull history, resources, and release timelines across six games.
 
 ## Games Tracked
 
@@ -8,7 +8,8 @@ Personal gacha game tracker for managing pull history, resources, and release ti
 2. **Honkai Star Rail** (HSR) - Turn-based RPG, ~6-week patch cycle, dual-phase banners
 3. **Zenless Zone Zero** (ZZZ) - Instance-based action RPG, HoYoverse dual-phase structure
 4. **Wuthering Waves** (WuWa) - Open-world action RPG, variable patch cadence trending toward ~6 weeks
-5. **Umamusume: Pretty Derby** (Uma) - Horse girl training gacha, manual banner dates, spark system (200 pulls = free pick)
+5. **Neverness to Everness** (NTE) - Action RPG, 35-day patch cycle, no character 50/50 (guaranteed), weapon 50/50
+6. **Umamusume: Pretty Derby** (Uma) - Horse girl training gacha, manual banner dates, spark system (200 pulls = free pick)
 
 ## Core Features
 
@@ -29,14 +30,21 @@ Estimated release schedules for characters, patches, events, and other notable m
 - Day 29 (Friday): Livestream preview of next patch
 - Day 42 (Thursday): Next patch begins
 
+**Neverness to Everness cycle (35-day):**
+- Day 0 (Wednesday): Patch Phase 1 releases
+- Day 21 (Wednesday): Patch Phase 2 releases
+- Day 24 (Saturday): Livestream preview of next patch
+- Day 35 (Wednesday): Next patch begins
+
 **Reference anchor dates (verified):**
 - Genshin 6.5: Apr 8, 2026 (Wed). Skips 6.8 and 6.9, proceeds from 6.7 to 7.0. 7.0 starts Aug 12, 2026.
 - HSR 4.2: Apr 22, 2026 (Wed). Phase 2: May 12. Livestream: May 22.
 - ZZZ 2.7: Mar 25, 2026 (Wed). Skips 2.9, proceeds to 3.0.
 - WuWa 3.2: Mar 19, 2026 (Thu). Phase 2: Apr 9. Livestream for 3.3: Apr 17.
 - WuWa 3.3: Apr 30, 2026 (Thu). Phase 2: May 21 (predicted).
+- NTE 1.0: Apr 29, 2026 (Wed). 35-day cycle. Phase 2: May 20. Livestream: May 23.
 
-**Version skip logic:** All patch-cycle games universally skip x.9 (e.g., x.8 -> (x+1).0). Genshin additionally skips 6.8 (6.7 -> 7.0). Implemented in `src/lib/timeline.ts` via universal x.9 rule + EXTRA_SKIPS map.
+**Version skip logic:** All patch-cycle games universally skip x.9 (e.g., x.8 -> (x+1).0). Genshin additionally skips 6.8 (6.7 -> 7.0). NTE additionally skips 1.6, 1.7, 1.8 (1.5 -> 2.0). Implemented in `src/lib/timeline.ts` via universal x.9 rule + EXTRA_SKIPS map.
 
 **Manual data per patch:** Character names, weapon names, and event details for each phase must be entered manually or sourced from community leaks/announcements. The cycle math only generates dates.
 
@@ -136,16 +144,18 @@ crvn-gacha-tracker/
 
 Each game shares a common structure with game-specific currency names:
 
-| Concept | Genshin Impact | Honkai Star Rail | Zenless Zone Zero | Wuthering Waves |
-|---|---|---|---|---|
-| Premium currency | Primogems | Stellar Jade | Polychrome | Astrite |
-| Pull item | Intertwined Fate | Star Rail Special Pass | Encrypted Master Tape | Radiant Tide |
-| Paid currency | Genesis Crystals | Oneiric Shard | Monochromes | Lunites |
-| Pity (5-star) | 90 | 90 | 90 | 80 |
-| Soft pity starts | ~74 | ~74 | ~74 | ~66 |
-| 50/50 system | Yes | Yes | Yes | Yes |
-| Weapon pity | 80 | 80 | 80 | 80 |
-| 30-day pass | Blessing of Welkin Moon | Express Supply Pass | Inter-Knot Membership | Lunite Subscription |
+| Concept | Genshin Impact | Honkai Star Rail | Zenless Zone Zero | Wuthering Waves | Neverness to Everness |
+|---|---|---|---|---|---|
+| Premium currency | Primogems | Stellar Jade | Polychrome | Astrite | Annulith |
+| Pull item | Intertwined Fate | Star Rail Special Pass | Encrypted Master Tape | Radiant Tide | Solid Dice |
+| Weapon pull item | (same) | (same) | (same) | Forging Tide | Triple Key |
+| Paid currency | Genesis Crystals | Oneiric Shard | Monochromes | Lunites | Riftcrystal |
+| Pity (5-star) | 90 | 90 | 90 | 80 | 90 |
+| Soft pity starts | ~74 | ~74 | ~74 | ~66 | ~75 |
+| 50/50 system | Yes | Yes | Yes | Yes | No (char guaranteed) |
+| Weapon 50/50 | Yes | Yes | Yes | Yes | Yes |
+| Weapon pity | 80 | 80 | 80 | 80 | 90 |
+| 30-day pass | Blessing of Welkin Moon | Express Supply Pass | Inter-Knot Membership | Lunite Subscription | Riftcrystal Permit |
 
 ## Pull Data Format (paimon.moe / Genshin Impact)
 
@@ -469,6 +479,7 @@ Permanent combat modes per game that reset on fixed schedules and award currency
 | ZZZ | Deadly Assault | cobra | 300 Polychrome | 14-day cycle |
 | WuWa | Tower of Adversity | tower | 800 Astrite | 28-day cycle |
 | WuWa | Whimpering Wastes | ship | 800 Astrite | 28-day cycle |
+| NTE | Beyond the Rails | rails | 2000 Annulith | Patch +1 day |
 
 **Tracking:** `combatClaims` table in Dexie tracks which resets have been seen (for toast notifications). The `claimCombatRewards()` function in `src/lib/combat-rewards.ts` records new claims on app load but does not touch resource snapshots. A one-time `reverseCombatRewardInflation()` cleanup exists to undo an earlier bug that incorrectly added combat rewards to stored currency.
 
@@ -478,8 +489,8 @@ Permanent combat modes per game that reset on fixed schedules and award currency
 
 Patch day and livestream rewards auto-accumulate into stored currency on app load (`src/lib/event-rewards.ts`). Uses `eventClaims` table to prevent double-counting.
 
-- **Patch day:** 600 currency at 11:00 AM on patch start (WuWa: 7 Radiant Tide + 7 Forging Tide instead)
-- **Livestream:** 300 currency at 8:00 PM, offset days after patch start (30 for HoYo, 29 for WuWa)
+- **Patch day:** 600 currency at 11:00 AM on patch start (WuWa: 7 Radiant Tide + 7 Forging Tide instead; NTE: 600 Annulith)
+- **Livestream:** 300 currency at 8:00 PM, offset days after patch start (30 for HoYo, 29 for WuWa, 24 for NTE)
 
 Income projection (`src/lib/daily-income.ts`) uses `targetEndOfDay` (23:59:59.999) for event reward date comparisons so same-day events are included. Once an event passes `now`, it drops from projection and gets accumulated into the snapshot.
 
@@ -528,7 +539,7 @@ git push origin main
 - TypeScript strict mode
 - File naming: kebab-case for files, PascalCase for components
 - One component per file
-- Game identifiers: "genshin", "hsr", "zzz", "wuwa", "uma" (used as keys throughout)
+- Game identifiers: "genshin", "hsr", "zzz", "wuwa", "nte", "uma" (used as keys throughout)
 - All dates stored as ISO 8601 strings
 - Currency amounts stored as integers (no floats)
 - Tailwind for all styling; no separate CSS files

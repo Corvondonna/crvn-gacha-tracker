@@ -60,6 +60,7 @@ export function calculatePatchDates(
  */
 const EXTRA_SKIPS: Partial<Record<GameId, Set<string>>> = {
   genshin: new Set(["6.8"]),
+  nte: new Set(["1.6", "1.7", "1.8"]),
 }
 
 /**

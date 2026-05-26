@@ -1,4 +1,4 @@
-export type GameId = "genshin" | "hsr" | "zzz" | "wuwa" | "uma"
+export type GameId = "genshin" | "hsr" | "zzz" | "wuwa" | "nte" | "uma"
 
 export interface GameConfig {
   id: GameId
@@ -180,6 +180,39 @@ export const GAMES: Record<GameId, GameConfig> = {
     sparkCarries: false,
     has5050: true,
   },
+  nte: {
+    id: "nte",
+    name: "Neverness to Everness",
+    shortName: "NTE",
+    currency: "Annulith",
+    pullItem: "Solid Dice",
+    weaponPullItem: "Triple Key",
+    paidCurrency: "Riftcrystal",
+    currencyPerPull: 160,
+    baseRate5Star: 0.0187,
+    pity5Star: 90,
+    softPityStart: 75,
+    weaponPity: 90,
+    weaponSoftPityStart: 75,
+    weaponBaseRate: 0.03,
+    weaponGuaranteed: false,
+    weaponMaxFatePoints: 0,
+    monthlyPass: "Riftcrystal Permit",
+    monthlyPassDaily: 90,
+    dailyCommissionIncome: 60,
+    dailyResetHour: 5,
+    accentVar: "--nte",
+    patchCycle: {
+      durationDays: 35,
+      patchDay: "Wednesday",
+      phase2OffsetDays: 21,
+      livestreamOffsetDays: 24,
+    },
+    hasPatchCycle: true,
+    sparkThreshold: 0,
+    sparkCarries: false,
+    has5050: false,
+  },
   uma: {
     id: "uma",
     name: "Umamusume: Pretty Derby",
@@ -216,4 +249,4 @@ export const GAMES: Record<GameId, GameConfig> = {
   },
 }
 
-export const GAME_IDS: GameId[] = ["genshin", "hsr", "zzz", "wuwa", "uma"]
+export const GAME_IDS: GameId[] = ["genshin", "hsr", "zzz", "wuwa", "nte", "uma"]

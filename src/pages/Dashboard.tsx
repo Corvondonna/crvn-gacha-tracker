@@ -245,7 +245,7 @@ export function Dashboard() {
               const charPullItems = (res.pullItems ?? 0) + projected.pullItems
               totalPulls = charPullItems + currencyPulls
               const currentPity = res.currentPity ?? 0
-              const isGuaranteed = res.isGuaranteed ?? false
+              const isGuaranteed = !game.has5050 || (res.isGuaranteed ?? false)
 
               if (totalPulls > 0 || currentPity > 0) {
                 if (isPullingWeapon) {
@@ -469,7 +469,7 @@ export function Dashboard() {
                         {card.resource?.currentPity ?? 0}/{game.pity5Star}
                       </div>
                       <div style={{ fontSize: 9, color: accent, marginTop: 2, fontWeight: 600 }}>
-                        {(card.resource?.isGuaranteed ?? false) ? "GUARANTEED" : "50/50"}
+                        {(!game.has5050 || (card.resource?.isGuaranteed ?? false)) ? "GUARANTEED" : "50/50"}
                       </div>
                     </div>
                     <div style={{ width: 1, height: 32, background: "hsla(0,0%,100%,0.06)", flexShrink: 0 }} />

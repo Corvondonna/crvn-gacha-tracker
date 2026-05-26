@@ -5,6 +5,7 @@ export type CombatIcon =
   | "crystal" | "dove" | "hourglass"    // HSR
   | "shield" | "cobra" | "void"         // ZZZ
   | "tower" | "ship" | "gateway"        // WuWa
+  | "rails"                             // NTE
   | "coin"                              // HSR weekly
 
 export interface CombatMode {
@@ -122,6 +123,16 @@ export const COMBAT_MODES: CombatMode[] = [
     icon: "ship",
     reward: 800,
     schedule: { type: "interval", intervalDays: 28, anchor: new Date(2026, 2, 16, 4, 0, 0) }, // Mar 16 4AM
+  },
+
+  // --- Neverness to Everness ---
+  {
+    id: "nte-rails",
+    gameId: "nte",
+    name: "Beyond the Rails",
+    icon: "rails",
+    reward: 2000,
+    schedule: { type: "patchRelative", offsetDays: 1 },
   },
 
   // --- Weekly resets (Monday 4 AM) ---

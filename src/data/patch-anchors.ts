@@ -24,6 +24,9 @@ export const PATCH_ANCHORS: PatchAnchor[] = [
 
   // Wuthering Waves 3.2 - Mar 19, 2026 (Thu)
   { gameId: "wuwa", version: "3.2", phase1Start: new Date(2026, 2, 19) },
+
+  // Neverness to Everness 1.0 - Apr 29, 2026 (Wed)
+  { gameId: "nte", version: "1.0", phase1Start: new Date(2026, 3, 29) },
 ]
 
 /**

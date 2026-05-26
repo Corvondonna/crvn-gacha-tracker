@@ -249,6 +249,18 @@ function CombatModeIcon({ icon, size: s, color, colorDim }: { icon: CombatIcon; 
             fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" />
         </g>
       )
+    case "rails": // Beyond the Rails (NTE) - train track / rails
+      return (
+        <g>
+          {/* Two parallel rails */}
+          <line x1={-s*0.3} y1={-s*0.7} x2={-s*0.3} y2={s*0.7} stroke={color} strokeWidth={sw} strokeLinecap="round" />
+          <line x1={s*0.3} y1={-s*0.7} x2={s*0.3} y2={s*0.7} stroke={color} strokeWidth={sw} strokeLinecap="round" />
+          {/* Cross ties */}
+          <line x1={-s*0.45} y1={-s*0.4} x2={s*0.45} y2={-s*0.4} stroke={color} strokeWidth={sw*0.8} strokeLinecap="round" />
+          <line x1={-s*0.45} y1={0} x2={s*0.45} y2={0} stroke={color} strokeWidth={sw*0.8} strokeLinecap="round" />
+          <line x1={-s*0.45} y1={s*0.4} x2={s*0.45} y2={s*0.4} stroke={color} strokeWidth={sw*0.8} strokeLinecap="round" />
+        </g>
+      )
     default:
       return <circle cx={0} cy={0} r={s*0.4} fill="none" stroke={color} strokeWidth={sw} />
   }
@@ -1267,7 +1279,7 @@ export function TimelineView() {
         const charPullItems = (res?.pullItems ?? 0) + projected.pullItems
         const totalCharPulls = charPullItems + currencyPulls
         const currentPity = res?.currentPity ?? 0
-        const isGuaranteed = res?.isGuaranteed ?? false
+        const isGuaranteed = !config.has5050 || (res?.isGuaranteed ?? false)
 
         if (totalCharPulls <= 0 && currentPity <= 0) continue
 

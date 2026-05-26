@@ -36,6 +36,8 @@ const SOFT_PITY_INCREMENT: Record<string, number> = {
   "zzz:weapon": 0.07,
   "wuwa:char": 0.06,
   "wuwa:weapon": 0.06,
+  "nte:char": 0.06,
+  "nte:weapon": 0.06,
 }
 
 /**
