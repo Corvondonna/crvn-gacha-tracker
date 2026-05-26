@@ -64,10 +64,29 @@ const EXTRA_SKIPS: Partial<Record<GameId, Set<string>>> = {
 }
 
 /**
+ * Minimum version per game. The backward generator stops here
+ * to avoid producing nonsensical pre-launch patches (e.g., NTE 0.x).
+ */
+const MIN_VERSION: Partial<Record<GameId, string>> = {
+  nte: "1.0",
+}
+
+/**
  * Returns true if a version should be skipped for the given game.
  * Universal rule: x.9 is always skipped (jumps to (x+1).0).
  * Per-game extras handled via EXTRA_SKIPS.
  */
+/**
+ * Compares two version strings numerically. Returns negative if a < b,
+ * zero if equal, positive if a > b.
+ */
+function compareVersions(a: string, b: string): number {
+  const [aMaj, aMin] = a.split(".").map(Number)
+  const [bMaj, bMin] = b.split(".").map(Number)
+  if (aMaj !== bMaj) return aMaj - bMaj
+  return aMin - bMin
+}
+
 function shouldSkip(version: string, gameId?: GameId): boolean {
   const minor = parseInt(version.split(".")[1], 10)
   if (minor === 9) return true
@@ -148,11 +167,14 @@ export function generatePatchSeries(
   }
 
   // Generate backward from anchor
+  const minVer = MIN_VERSION[gameId]
   currentDate = new Date(anchorDate)
   currentDate.setDate(currentDate.getDate() - cycle.durationDays)
   currentVersion = decrementVersion(anchorVersion, gameId)
 
   while (currentDate >= rangeStart) {
+    // Stop if we've gone below the game's minimum version
+    if (minVer && compareVersions(currentVersion, minVer) < 0) break
     patches.push(calculatePatchDates(gameId, currentVersion, new Date(currentDate)))
     currentDate.setDate(currentDate.getDate() - cycle.durationDays)
     currentVersion = decrementVersion(currentVersion, gameId)
@@ -160,7 +182,7 @@ export function generatePatchSeries(
 
   // Include one extra patch before rangeStart so its Phase 2 / livestream
   // nodes that fall within range still appear
-  if (currentDate.getTime() < rangeStart.getTime()) {
+  if (currentDate.getTime() < rangeStart.getTime() && (!minVer || compareVersions(currentVersion, minVer) >= 0)) {
     const extraPatch = calculatePatchDates(gameId, currentVersion, new Date(currentDate))
     if (extraPatch.patchEnd.getTime() >= rangeStart.getTime()) {
       patches.push(extraPatch)
