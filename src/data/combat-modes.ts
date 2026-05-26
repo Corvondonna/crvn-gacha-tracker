@@ -131,7 +131,7 @@ export const COMBAT_MODES: CombatMode[] = [
     gameId: "nte",
     name: "Beyond the Rails",
     icon: "rails",
-    reward: 2000,
+    reward: 700,
     schedule: { type: "interval", intervalDays: 14, anchor: new Date(2026, 5, 4, 5, 0, 0) }, // Jun 4 5AM
   },
 
