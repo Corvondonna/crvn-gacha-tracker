@@ -479,7 +479,7 @@ Permanent combat modes per game that reset on fixed schedules and award currency
 | ZZZ | Deadly Assault | cobra | 300 Polychrome | 14-day cycle |
 | WuWa | Tower of Adversity | tower | 800 Astrite | 28-day cycle |
 | WuWa | Whimpering Wastes | ship | 800 Astrite | 28-day cycle |
-| NTE | Beyond the Rails | rails | 2000 Annulith | Patch +1 day |
+| NTE | Beyond the Rails | rails | 2000 Annulith | 14-day cycle |
 
 **Tracking:** `combatClaims` table in Dexie tracks which resets have been seen (for toast notifications). The `claimCombatRewards()` function in `src/lib/combat-rewards.ts` records new claims on app load but does not touch resource snapshots. A one-time `reverseCombatRewardInflation()` cleanup exists to undo an earlier bug that incorrectly added combat rewards to stored currency.
 

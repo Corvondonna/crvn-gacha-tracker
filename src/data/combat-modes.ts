@@ -132,7 +132,7 @@ export const COMBAT_MODES: CombatMode[] = [
     name: "Beyond the Rails",
     icon: "rails",
     reward: 2000,
-    schedule: { type: "patchRelative", offsetDays: 1 },
+    schedule: { type: "interval", intervalDays: 14, anchor: new Date(2026, 5, 4, 5, 0, 0) }, // Jun 4 5AM
   },
 
   // --- Weekly resets (Monday 4 AM) ---
