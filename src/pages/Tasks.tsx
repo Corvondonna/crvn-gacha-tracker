@@ -646,7 +646,8 @@ export function Tasks() {
           display: "flex",
           flexDirection: "column",
           gap: 12,
-          maxWidth: 600,
+          minWidth: 420,
+          width: "fit-content",
         }}
       >
         {visibleGameIds.map((gid) => (
