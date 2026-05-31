@@ -253,17 +253,22 @@ export function patchesToNodes(patches: PatchDates[]): TimelineNode[] {
       isSpeculation: isSpec,
     })
 
-    // Livestream previews the NEXT patch
+    // Livestream previews the NEXT patch, anchored to the next patch's Phase 1
     const nextPatch = patches[i + 1]
     if (nextPatch) {
+      const cycle = GAMES[patch.gameId].patchCycle
+      const daysBeforeNext = cycle.durationDays - cycle.livestreamOffsetDays
+      const livestreamDate = new Date(nextPatch.phase1Start)
+      livestreamDate.setDate(livestreamDate.getDate() - daysBeforeNext)
+
       nodes.push({
         gameId: patch.gameId,
         version: nextPatch.version,
         phase: "livestream",
-        date: patch.livestreamDate,
-        label: `${formatDate(patch.livestreamDate)} (${nextPatch.version} Preview)`,
+        date: livestreamDate,
+        label: `${formatDate(livestreamDate)} (${nextPatch.version} Preview)`,
         characterName: null,
-        isSpeculation: patch.livestreamDate.getTime() > now.getTime(),
+        isSpeculation: livestreamDate.getTime() > now.getTime(),
       })
     }
   }
