@@ -45,7 +45,8 @@ create table public.timeline (
   banner_duration_days integer,
   rate_up_percent real,
   spark_count integer,
-  dupe_count integer
+  dupe_count integer,
+  date_override text
 );
 
 create table public.pulls (

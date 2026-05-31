@@ -72,6 +72,7 @@ export async function pullFromCloud(): Promise<void> {
         rateUpPercent: t.rate_up_percent ?? undefined,
         sparkCount: t.spark_count ?? undefined,
         dupeCount: t.dupe_count ?? undefined,
+        dateOverride: t.date_override ?? undefined,
       } as unknown as TimelineEntry)
 
       if (t.character_portrait_url && dexieId) {
@@ -196,6 +197,7 @@ export async function deduplicateTimeline(): Promise<number> {
     if (e.pullStatus && e.pullStatus !== "none") score += 3
     if (e.isPriority) score += 2
     if (e.pullingWeapon) score += 1
+    if (e.dateOverride) score += 4
     score += (e.id ?? 0) // tiebreak: higher ID = more recent insert
 
     const existing = seen.get(key)
@@ -292,6 +294,7 @@ async function _pushToCloudImpl(): Promise<void> {
         rate_up_percent: t.rateUpPercent ?? null,
         spark_count: t.sparkCount ?? null,
         dupe_count: t.dupeCount ?? null,
+        date_override: t.dateOverride ?? null,
       })
     }
     await supabase.from("timeline").insert(mapped)

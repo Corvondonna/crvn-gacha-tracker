@@ -37,6 +37,8 @@ export interface TimelineEntry {
   sparkCount?: number
   /** Support card dupe count (Uma: 0-5 for limit breaking) */
   dupeCount?: number
+  /** User-set date override (ISO string). When set, this date replaces the calculated date. */
+  dateOverride?: string
 }
 
 export interface ResourceSnapshot {
@@ -220,6 +222,19 @@ db.version(9).stores({
   characters: "++id, gameId, displayName, internalId",
   combatClaims: "++id, modeId, resetDate",
   eventClaims: "++id, eventKey, gameId",
+})
+
+db.version(10).stores({
+  pulls: "++id, gameId, bannerType, timestamp, rarity",
+  timeline: "++id, gameId, version, startDate, bannerLane",
+  resources: "++id, gameId, updatedAt",
+  characters: "++id, gameId, displayName, internalId",
+  combatClaims: "++id, modeId, resetDate",
+  eventClaims: "++id, eventKey, gameId",
+}).upgrade(tx => {
+  return tx.table("timeline").toCollection().modify(entry => {
+    if (entry.dateOverride === undefined) entry.dateOverride = undefined
+  })
 })
 
 export { db }

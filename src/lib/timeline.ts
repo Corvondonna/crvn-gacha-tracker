@@ -1,5 +1,5 @@
 import { GAMES, type GameId } from "./games"
-import { PATCH_DATE_OVERRIDES } from "@/data/patch-anchors"
+import { PATCH_DATE_OVERRIDES, type PatchDateOverride } from "@/data/patch-anchors"
 
 export interface PatchDates {
   gameId: GameId
@@ -8,6 +8,10 @@ export interface PatchDates {
   phase2Start: Date
   livestreamDate: Date
   patchEnd: Date
+  /** True if phase1Start came from a user override rather than calculation */
+  phase1IsManual?: boolean
+  /** True if phase2Start came from a user override rather than calculation */
+  phase2IsManual?: boolean
 }
 
 export interface TimelineNode {
@@ -25,32 +29,41 @@ export interface TimelineNode {
 /**
  * Given a patch start date and version, calculates all key dates
  * for that patch using the game's cycle config.
+ *
+ * Overrides are checked in order: runtimeOverrides (user DB) > PATCH_DATE_OVERRIDES (hardcoded) > calculated.
  */
 export function calculatePatchDates(
   gameId: GameId,
   version: string,
-  phase1Start: Date
+  phase1Start: Date,
+  runtimeOverrides?: Map<string, PatchDateOverride>
 ): PatchDates {
   const cycle = GAMES[gameId].patchCycle
-  const override = PATCH_DATE_OVERRIDES[`${gameId}:${version}`]
+  const key = `${gameId}:${version}`
+  const hardcoded = PATCH_DATE_OVERRIDES[key]
+  const runtime = runtimeOverrides?.get(key)
 
-  // Use override dates if available, fall back to calculated
-  const actualPhase1 = override?.phase1Start ?? phase1Start
+  // Phase 1: runtime > hardcoded > calculated
+  const phase1IsManual = !!runtime?.phase1Start
+  const actualPhase1 = runtime?.phase1Start ?? hardcoded?.phase1Start ?? phase1Start
 
-  const phase2Start = override?.phase2Start ?? new Date(actualPhase1)
-  if (!override?.phase2Start) {
+  // Phase 2: runtime > hardcoded > calculated from phase1
+  const phase2IsManual = !!runtime?.phase2Start
+  const phase2Start = runtime?.phase2Start ?? hardcoded?.phase2Start ?? new Date(actualPhase1)
+  if (!runtime?.phase2Start && !hardcoded?.phase2Start) {
     phase2Start.setDate(phase2Start.getDate() + cycle.phase2OffsetDays)
   }
 
-  const livestreamDate = override?.livestreamDate ?? new Date(actualPhase1)
-  if (!override?.livestreamDate) {
+  // Livestream: hardcoded > calculated from phase1 (no runtime override for livestream)
+  const livestreamDate = hardcoded?.livestreamDate ?? new Date(actualPhase1)
+  if (!hardcoded?.livestreamDate) {
     livestreamDate.setDate(livestreamDate.getDate() + cycle.livestreamOffsetDays)
   }
 
   const patchEnd = new Date(actualPhase1)
   patchEnd.setDate(patchEnd.getDate() + cycle.durationDays)
 
-  return { gameId, version, phase1Start: actualPhase1, phase2Start, livestreamDate, patchEnd }
+  return { gameId, version, phase1Start: actualPhase1, phase2Start, livestreamDate, patchEnd, phase1IsManual, phase2IsManual }
 }
 
 /**
@@ -145,13 +158,19 @@ function decrementVersion(version: string, gameId?: GameId): string {
 /**
  * Generates a series of patch dates forward and backward from an anchor.
  * Returns patches covering the requested date range.
+ *
+ * When dateOverrides are provided, a Phase 1 override on version N shifts
+ * that patch's Phase 2 and livestream, and cascades forward: version N+1
+ * starts at N's overridden Phase 1 + durationDays (unless N+1 also has
+ * its own Phase 1 override).
  */
 export function generatePatchSeries(
   gameId: GameId,
   anchorVersion: string,
   anchorDate: Date,
   rangeStart: Date,
-  rangeEnd: Date
+  rangeEnd: Date,
+  dateOverrides?: Map<string, PatchDateOverride>
 ): PatchDates[] {
   const cycle = GAMES[gameId].patchCycle
   const patches: PatchDates[] = []
@@ -161,7 +180,10 @@ export function generatePatchSeries(
   let currentVersion = anchorVersion
 
   while (currentDate <= rangeEnd) {
-    patches.push(calculatePatchDates(gameId, currentVersion, new Date(currentDate)))
+    const patch = calculatePatchDates(gameId, currentVersion, new Date(currentDate), dateOverrides)
+    patches.push(patch)
+    // Cascade: next patch starts from this patch's actual Phase 1 + duration
+    currentDate = new Date(patch.phase1Start)
     currentDate.setDate(currentDate.getDate() + cycle.durationDays)
     currentVersion = incrementVersion(currentVersion, gameId)
   }
@@ -173,9 +195,11 @@ export function generatePatchSeries(
   currentVersion = decrementVersion(anchorVersion, gameId)
 
   while (currentDate >= rangeStart) {
-    // Stop if we've gone below the game's minimum version
     if (minVer && compareVersions(currentVersion, minVer) < 0) break
-    patches.push(calculatePatchDates(gameId, currentVersion, new Date(currentDate)))
+    const patch = calculatePatchDates(gameId, currentVersion, new Date(currentDate), dateOverrides)
+    patches.push(patch)
+    // Cascade backward: previous patch ends where this one starts
+    currentDate = new Date(patch.phase1Start)
     currentDate.setDate(currentDate.getDate() - cycle.durationDays)
     currentVersion = decrementVersion(currentVersion, gameId)
   }
@@ -183,7 +207,7 @@ export function generatePatchSeries(
   // Include one extra patch before rangeStart so its Phase 2 / livestream
   // nodes that fall within range still appear
   if (currentDate.getTime() < rangeStart.getTime() && (!minVer || compareVersions(currentVersion, minVer) >= 0)) {
-    const extraPatch = calculatePatchDates(gameId, currentVersion, new Date(currentDate))
+    const extraPatch = calculatePatchDates(gameId, currentVersion, new Date(currentDate), dateOverrides)
     if (extraPatch.patchEnd.getTime() >= rangeStart.getTime()) {
       patches.push(extraPatch)
     }

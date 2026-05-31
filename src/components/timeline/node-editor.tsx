@@ -15,6 +15,8 @@ interface NodeEditorProps {
   onSave: () => void
   /** When true, the editor is in "create" mode: version is auto-generated, date is editable */
   isCreateMode?: boolean
+  /** Whether the current date came from a user override (vs calculated) */
+  isManualDate?: boolean
 }
 
 const VALUE_TIERS = [
@@ -136,11 +138,13 @@ function ProbRow({ label, result, pulls, formula }: {
   )
 }
 
-export function NodeEditor({ gameId, version, phase, date: initialDate, onClose, onSave, isCreateMode }: NodeEditorProps) {
+export function NodeEditor({ gameId, version, phase, date: initialDate, onClose, onSave, isCreateMode, isManualDate: initialIsManual }: NodeEditorProps) {
   const game = GAMES[gameId]
   const panelRef = useRef<HTMLDivElement>(null)
 
   const [date, setDate] = useState(initialDate)
+  const [dateWasEdited, setDateWasEdited] = useState(false)
+  const [isManual, setIsManual] = useState(initialIsManual ?? false)
   const [characterName, setCharacterName] = useState("")
   const [valueTier, setValueTier] = useState<TimelineEntry["valueTier"]>("limited")
   const [isSpeculation, setIsSpeculation] = useState(false)
@@ -180,6 +184,9 @@ export function NodeEditor({ gameId, version, phase, date: initialDate, onClose,
         setSparkCount(entry.sparkCount ?? 0)
         setDupeCount(entry.dupeCount ?? 0)
         setBannerDurationDays(entry.bannerDurationDays ?? 14)
+        if (entry.dateOverride) {
+          setIsManual(true)
+        }
         if (entry.characterPortrait) {
           setPortraitPreview(URL.createObjectURL(entry.characterPortrait))
           setPortraitBlob(entry.characterPortrait)
@@ -266,10 +273,36 @@ export function NodeEditor({ gameId, version, phase, date: initialDate, onClose,
     }
   }
 
+  const handleResetDate = () => {
+    setDate(initialDate)
+    setDateWasEdited(false)
+    setIsManual(false)
+  }
+
+  const handleDateChange = (newDate: Date) => {
+    setDate(newDate)
+    setDateWasEdited(true)
+    setIsManual(true)
+  }
+
   const handleSave = async () => {
     const isUma = gameId === "uma"
     // In create mode, generate a unique version from timestamp
     const effectiveVersion = isCreateMode ? `uma-${Date.now()}` : version
+
+    // Compute dateOverride: set if user edited the date, clear if reset
+    let dateOverride: string | undefined
+    if (game.hasPatchCycle && !isCreateMode) {
+      if (dateWasEdited && isManual) {
+        dateOverride = date.toISOString()
+      } else if (!isManual) {
+        dateOverride = undefined // cleared
+      } else if (isManual && !dateWasEdited) {
+        // Was already manual, user didn't change it: preserve existing override
+        dateOverride = date.toISOString()
+      }
+    }
+
     const entry: Omit<TimelineEntry, "id"> = {
       gameId,
       version: effectiveVersion,
@@ -282,6 +315,7 @@ export function NodeEditor({ gameId, version, phase, date: initialDate, onClose,
       isPriority,
       pullStatus,
       pullingWeapon,
+      dateOverride,
       ...(isUma && {
         bannerLane,
         rateUpPercent,
@@ -519,25 +553,51 @@ export function NodeEditor({ gameId, version, phase, date: initialDate, onClose,
                 <div style={{ marginTop: 4 }}>
                   <DatePicker
                     value={date}
-                    onChange={setDate}
+                    onChange={handleDateChange}
                     accentVar={game.accentVar}
                   />
                 </div>
               ) : (
-                <div
-                  style={{
-                    fontSize: 10,
-                    fontFamily: MONO,
-                    color: "hsla(0,0%,100%,0.35)",
-                    marginTop: 4,
-                  }}
-                >
-                  {date.toLocaleDateString("en-US", {
-                    weekday: "short",
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
+                <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 8 }}>
+                  <DatePicker
+                    value={date}
+                    onChange={handleDateChange}
+                    accentVar={game.accentVar}
+                  />
+                  <span
+                    style={{
+                      fontSize: 8,
+                      fontWeight: 700,
+                      fontFamily: MONO,
+                      letterSpacing: "1px",
+                      padding: "2px 5px",
+                      borderRadius: 2,
+                      background: isManual ? "hsla(45, 80%, 55%, 0.15)" : "hsla(0,0%,100%,0.05)",
+                      color: isManual ? "hsl(45, 80%, 55%)" : "hsla(0,0%,100%,0.3)",
+                      border: `1px solid ${isManual ? "hsla(45, 80%, 55%, 0.3)" : "hsla(0,0%,100%,0.08)"}`,
+                    }}
+                  >
+                    {isManual ? "MANUAL" : "CALCULATED"}
+                  </span>
+                  {isManual && (
+                    <button
+                      onClick={handleResetDate}
+                      style={{
+                        fontSize: 8,
+                        fontWeight: 600,
+                        fontFamily: MONO,
+                        padding: "2px 5px",
+                        borderRadius: 2,
+                        background: "hsla(0,0%,100%,0.04)",
+                        color: "hsla(0,0%,100%,0.35)",
+                        border: "1px solid hsla(0,0%,100%,0.08)",
+                        cursor: "pointer",
+                        letterSpacing: "0.5px",
+                      }}
+                    >
+                      RESET
+                    </button>
+                  )}
                 </div>
               )}
             </div>

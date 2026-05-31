@@ -8,7 +8,7 @@ import {
   type TimelineNode,
   type PatchDates,
 } from "@/lib/timeline"
-import { PATCH_ANCHORS } from "@/data/patch-anchors"
+import { PATCH_ANCHORS, type PatchDateOverride } from "@/data/patch-anchors"
 import { db, type TimelineEntry, type ResourceSnapshot } from "@/lib/db"
 import { seedTimeline } from "@/lib/seed-timeline"
 import { computeCharacterProbability, computeCombinedProbability, computeSparkProbability, type ProbabilityResult } from "@/lib/probability"
@@ -57,6 +57,10 @@ interface EditorTarget {
   phase: 1 | 2
   date: Date
   isCreateMode?: boolean
+  /** The calculated date (without overrides) so the editor can show Manual/Calculated status */
+  calculatedDate?: Date
+  /** Whether the current date is from a user override */
+  isManualDate?: boolean
 }
 
 /** Map from "gameId:version:phase" to saved entry data */
@@ -71,6 +75,7 @@ type EntryData = {
   bannerLane?: TimelineEntry["bannerLane"]
   rateUpPercent?: number
   dupeCount?: number
+  dateOverride?: string
 }
 type EntryMap = Map<string, EntryData>
 
@@ -982,6 +987,7 @@ export function TimelineView() {
           bannerLane: e.bannerLane,
           rateUpPercent: e.rateUpPercent,
           dupeCount: e.dupeCount,
+          dateOverride: e.dateOverride,
         })
         if (e.gameId === "uma") umaRaw.push(e)
       }
@@ -1157,6 +1163,22 @@ export function TimelineView() {
     return gameVisibility[gameId] ? rowHeight : 0
   }, [rowHeight, gameVisibility])
 
+  // Build runtime date overrides from user-edited entries
+  const runtimeOverrides = useMemo(() => {
+    const overrides = new Map<string, PatchDateOverride>()
+    for (const [key, data] of entryMap) {
+      if (!data.dateOverride) continue
+      const [gameId, version, phaseStr] = key.split(":")
+      const overrideKey = `${gameId}:${version}`
+      const existing = overrides.get(overrideKey) ?? {}
+      const phase = parseInt(phaseStr, 10)
+      if (phase === 1) existing.phase1Start = new Date(data.dateOverride)
+      if (phase === 2) existing.phase2Start = new Date(data.dateOverride)
+      overrides.set(overrideKey, existing)
+    }
+    return overrides
+  }, [entryMap])
+
   const { months, allNodes, allPatches, combatResets, patchStartMap, totalWidth, totalHeight } = useMemo(() => {
     const months = getMonthsBetween(rangeStart, rangeEnd)
     const totalWidth = months.length * monthWidth + PADDING_LEFT + PADDING_RIGHT
@@ -1171,7 +1193,8 @@ export function TimelineView() {
         anchor.version,
         anchor.phase1Start,
         rangeStart,
-        rangeEnd
+        rangeEnd,
+        runtimeOverrides
       )
       allPatches.push(...patches)
       const nodes = patchesToNodes(patches)
@@ -1216,7 +1239,7 @@ export function TimelineView() {
     }
 
     return { months, allNodes, allPatches, combatResets, patchStartMap, totalWidth, totalHeight }
-  }, [rowHeight, monthWidth, umaEntries, effectiveRowCount, selectedYear])
+  }, [rowHeight, monthWidth, umaEntries, effectiveRowCount, selectedYear, runtimeOverrides])
 
   // Compute probability only for the next upcoming character per game
   useEffect(() => {
@@ -1343,15 +1366,23 @@ export function TimelineView() {
       clickTimer.current = setTimeout(() => {
         clickTimer.current = null
         setTooltip(null)
+
+        // Look up manual flag from the patch data
+        const patch = allPatches.find(
+          (p) => p.gameId === node.gameId && p.version === node.version
+        )
+        const isManual = node.phase === 1 ? patch?.phase1IsManual : patch?.phase2IsManual
+
         setEditorTarget({
           gameId: node.gameId,
           version: node.version,
           phase: node.phase as 1 | 2,
           date: node.date,
+          isManualDate: isManual,
         })
       }, 250)
     },
-    []
+    [allPatches]
   )
 
   const handleNodeDoubleClick = useCallback(
@@ -1958,6 +1989,7 @@ export function TimelineView() {
           onClose={() => setEditorTarget(null)}
           onSave={() => setDataVersion((v) => v + 1)}
           isCreateMode={editorTarget.isCreateMode}
+          isManualDate={editorTarget.isManualDate}
         />
       )}
     </div>
