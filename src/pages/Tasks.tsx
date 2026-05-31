@@ -6,6 +6,118 @@ import { getGameVisibility } from "@/components/layout/sidebar"
 
 const MONO = "'JetBrains Mono', 'Fira Code', monospace"
 
+type TaskType = TaskItem["type"]
+
+const TASK_TYPES: { value: TaskType; label: string }[] = [
+  { value: "daily", label: "Daily" },
+  { value: "weekly", label: "Weekly" },
+  { value: "event", label: "Event" },
+  { value: "quest", label: "Quest" },
+  { value: "endgame", label: "Endgame" },
+]
+
+const TYPE_COLORS: Record<TaskType, { bg: string; color: string; border: string }> = {
+  daily: { bg: "hsla(0,0%,100%,0.04)", color: "hsla(0,0%,100%,0.25)", border: "hsla(0,0%,100%,0.06)" },
+  weekly: { bg: "hsla(270, 60%, 50%, 0.12)", color: "hsl(270, 60%, 65%)", border: "hsla(270, 60%, 50%, 0.2)" },
+  event: { bg: "hsla(45, 80%, 55%, 0.12)", color: "hsl(45, 80%, 55%)", border: "hsla(45, 80%, 55%, 0.2)" },
+  quest: { bg: "hsla(142, 60%, 50%, 0.12)", color: "hsl(142, 60%, 50%)", border: "hsla(142, 60%, 50%, 0.2)" },
+  endgame: { bg: "hsla(0, 70%, 50%, 0.12)", color: "hsl(0, 70%, 55%)", border: "hsla(0, 70%, 50%, 0.2)" },
+}
+
+function TypeDropdown({
+  value,
+  onChange,
+}: {
+  value: TaskType
+  onChange: (v: TaskType) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener("mousedown", handler)
+    return () => document.removeEventListener("mousedown", handler)
+  }, [open])
+
+  const current = TASK_TYPES.find((t) => t.value === value)!
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button
+        onClick={() => setOpen(!open)}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 4,
+          padding: "5px 8px",
+          borderRadius: 3,
+          fontSize: 10,
+          fontFamily: MONO,
+          background: "hsla(0,0%,100%,0.04)",
+          border: "1px solid hsla(0,0%,100%,0.08)",
+          color: "hsla(0,0%,100%,0.5)",
+          cursor: "pointer",
+          minWidth: 80,
+          justifyContent: "space-between",
+        }}
+      >
+        <span>{current.label}</span>
+        <span style={{ fontSize: 8, opacity: 0.4 }}>▾</span>
+      </button>
+      {open && (
+        <div
+          style={{
+            position: "absolute",
+            top: "calc(100% + 4px)",
+            right: 0,
+            minWidth: 100,
+            background: "hsl(0, 0%, 6%)",
+            border: "1px solid hsla(0,0%,100%,0.1)",
+            borderRadius: 3,
+            overflow: "hidden",
+            zIndex: 50,
+            boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
+          }}
+        >
+          {TASK_TYPES.map((t) => (
+            <button
+              key={t.value}
+              onClick={() => {
+                onChange(t.value)
+                setOpen(false)
+              }}
+              style={{
+                display: "block",
+                width: "100%",
+                padding: "6px 10px",
+                fontSize: 10,
+                fontFamily: MONO,
+                background: value === t.value ? "hsla(0,0%,100%,0.06)" : "transparent",
+                border: "none",
+                color: value === t.value ? "hsla(0,0%,100%,0.7)" : "hsla(0,0%,100%,0.4)",
+                cursor: "pointer",
+                textAlign: "left",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "hsla(0,0%,100%,0.08)"
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = value === t.value ? "hsla(0,0%,100%,0.06)" : "transparent"
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 /**
  * Returns the most recent reset time for a given hour.
  * If the reset hour hasn't passed today, returns yesterday's reset.
@@ -30,11 +142,14 @@ function getLastReset(resetHour: number, dayOfWeek?: number): Date {
 }
 
 /**
- * Returns true if a completed task should be hidden (completed before the last reset).
- * Returns false if it was completed after the last reset (still counts for this cycle).
+ * Returns true if a completed task should be shown.
+ * Daily/weekly tasks hide after their reset cycle passes.
+ * Event/quest/endgame tasks stay visible when completed (no auto-reset).
  */
 function shouldShow(task: TaskItem): boolean {
   if (!task.isCompleted || !task.completedAt) return true
+  // Only daily and weekly tasks auto-hide after reset
+  if (task.type !== "daily" && task.type !== "weekly") return true
   const game = GAMES[task.gameId]
   const resetHour = game.dailyResetHour
   const lastReset = task.type === "weekly"
@@ -51,6 +166,8 @@ async function autoResetTasks(): Promise<number> {
   let resetCount = 0
   for (const task of allTasks) {
     if (!task.isCompleted || !task.completedAt) continue
+    // Only daily and weekly tasks auto-reset
+    if (task.type !== "daily" && task.type !== "weekly") continue
     const game = GAMES[task.gameId]
     const resetHour = game.dailyResetHour
     const lastReset = task.type === "weekly"
@@ -79,7 +196,7 @@ function GameSection({
 
   const [collapsed, setCollapsed] = useState(false)
   const [newName, setNewName] = useState("")
-  const [newType, setNewType] = useState<"daily" | "weekly">("daily")
+  const [newType, setNewType] = useState<TaskType>("daily")
   const [showAdd, setShowAdd] = useState(false)
   const [dragTaskId, setDragTaskId] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
@@ -342,19 +459,9 @@ function GameSection({
                   textTransform: "uppercase",
                   padding: "1px 5px",
                   borderRadius: 2,
-                  background:
-                    task.type === "weekly"
-                      ? "hsla(270, 60%, 50%, 0.12)"
-                      : "hsla(0,0%,100%,0.04)",
-                  color:
-                    task.type === "weekly"
-                      ? "hsl(270, 60%, 65%)"
-                      : "hsla(0,0%,100%,0.25)",
-                  border: `1px solid ${
-                    task.type === "weekly"
-                      ? "hsla(270, 60%, 50%, 0.2)"
-                      : "hsla(0,0%,100%,0.06)"
-                  }`,
+                  background: TYPE_COLORS[task.type].bg,
+                  color: TYPE_COLORS[task.type].color,
+                  border: `1px solid ${TYPE_COLORS[task.type].border}`,
                 }}
               >
                 {task.type}
@@ -411,24 +518,10 @@ function GameSection({
                   color: "hsl(var(--foreground))",
                 }}
               />
-              <select
+              <TypeDropdown
                 value={newType}
-                onChange={(e) => setNewType(e.target.value as "daily" | "weekly")}
-                style={{
-                  padding: "5px 6px",
-                  borderRadius: 3,
-                  fontSize: 10,
-                  fontFamily: MONO,
-                  background: "hsla(0,0%,100%,0.04)",
-                  border: "1px solid hsla(0,0%,100%,0.08)",
-                  outline: "none",
-                  color: "hsla(0,0%,100%,0.5)",
-                  cursor: "pointer",
-                }}
-              >
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
-              </select>
+                onChange={setNewType}
+              />
               <button
                 onClick={handleAdd}
                 style={{

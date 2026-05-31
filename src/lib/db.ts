@@ -96,7 +96,7 @@ export interface TaskItem {
   id?: number
   gameId: GameId
   name: string
-  type: "daily" | "weekly"
+  type: "daily" | "weekly" | "event" | "quest" | "endgame"
   isCompleted: boolean
   /** ISO timestamp of when the task was last completed */
   completedAt: string | null
