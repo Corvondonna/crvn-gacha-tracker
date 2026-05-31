@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { NavLink, useLocation } from "react-router-dom"
-import { Home, Calendar, History, Wallet, Swords, CalendarClock, ChevronDown, Eye, EyeOff, LogOut } from "lucide-react"
+import { Home, Calendar, Wallet, Swords, CalendarClock, ChevronDown, Eye, EyeOff, LogOut, ListChecks } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { GAMES, GAME_IDS, type GameId } from "@/lib/games"
 import { useAuth } from "@/lib/auth"
@@ -8,7 +8,8 @@ import { useAuth } from "@/lib/auth"
 const navItems = [
   { to: "/", label: "Dashboard", icon: Home },
   { to: "/timeline", label: "Timeline", icon: Calendar },
-  { to: "/pulls", label: "Pulls", icon: History },
+  // { to: "/pulls", label: "Pulls", icon: History }, // Disabled: pull tracker deferred
+  { to: "/tasks", label: "Tasks", icon: ListChecks },
   { to: "/resources", label: "Resources", icon: Wallet },
 ]
 

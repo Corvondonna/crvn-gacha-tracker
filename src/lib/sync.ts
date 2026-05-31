@@ -1,5 +1,5 @@
 import { supabase } from "./supabase"
-import { db, type ResourceSnapshot, type TimelineEntry, type PullRecord, type CharacterRegistration, type CombatRewardClaim, type EventRewardClaim } from "./db"
+import { db, type ResourceSnapshot, type TimelineEntry, type PullRecord, type CharacterRegistration, type CombatRewardClaim, type EventRewardClaim, type TaskItem } from "./db"
 
 /**
  * Pulls all data from Supabase into local Dexie tables.
@@ -15,6 +15,7 @@ export async function pullFromCloud(): Promise<void> {
     { data: cloudCharacters },
     { data: cloudCombatClaims },
     { data: cloudEventClaims },
+    { data: cloudTasks },
   ] = await Promise.all([
     supabase.from("resources").select("*"),
     supabase.from("timeline").select("*"),
@@ -22,6 +23,7 @@ export async function pullFromCloud(): Promise<void> {
     supabase.from("characters").select("*"),
     supabase.from("combat_claims").select("*"),
     supabase.from("event_claims").select("*"),
+    supabase.from("tasks").select("*"),
   ])
 
   // --- Resources ---
@@ -144,6 +146,21 @@ export async function pullFromCloud(): Promise<void> {
     await db.eventClaims.bulkAdd(mapped as unknown as EventRewardClaim[])
   }
 
+  // --- Tasks ---
+  if (cloudTasks && cloudTasks.length > 0) {
+    await db.tasks.clear()
+    const mapped = cloudTasks.map(t => ({
+      gameId: t.game_id,
+      name: t.name,
+      type: t.type,
+      isCompleted: t.is_completed,
+      completedAt: t.completed_at,
+      sortOrder: t.sort_order,
+      _cloudId: t.id,
+    }))
+    await db.tasks.bulkAdd(mapped as unknown as TaskItem[])
+  }
+
   // Deduplicate in case cloud had duplicates
   await deduplicateTimeline()
 
@@ -241,13 +258,14 @@ export async function pushToCloud(): Promise<void> {
 
 async function _pushToCloudImpl(): Promise<void> {
   // Read all local data in parallel
-  const [localResources, localTimeline, localPulls, localCharacters, localCombatClaims, localEventClaims] = await Promise.all([
+  const [localResources, localTimeline, localPulls, localCharacters, localCombatClaims, localEventClaims, localTasks] = await Promise.all([
     db.resources.toArray(),
     db.timeline.toArray(),
     db.pulls.toArray(),
     db.characters.toArray(),
     db.combatClaims.toArray(),
     db.eventClaims.toArray(),
+    db.tasks.toArray(),
   ])
 
   // Clear all cloud tables in parallel
@@ -258,6 +276,7 @@ async function _pushToCloudImpl(): Promise<void> {
     supabase.from("characters").delete().neq("id", 0),
     supabase.from("combat_claims").delete().neq("id", 0),
     supabase.from("event_claims").delete().neq("id", 0),
+    supabase.from("tasks").delete().neq("id", 0),
   ])
 
   // --- Timeline (sequential due to portrait uploads) ---
@@ -379,6 +398,18 @@ async function _pushToCloudImpl(): Promise<void> {
       claimed_at: e.claimedAt,
     }))
     insertOps.push(supabase.from("event_claims").insert(mapped))
+  }
+
+  if (localTasks.length > 0) {
+    const mapped = localTasks.map(t => ({
+      game_id: t.gameId,
+      name: t.name,
+      type: t.type,
+      is_completed: t.isCompleted,
+      completed_at: t.completedAt,
+      sort_order: t.sortOrder,
+    }))
+    insertOps.push(supabase.from("tasks").insert(mapped))
   }
 
   await Promise.all(insertOps)

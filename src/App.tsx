@@ -3,7 +3,8 @@ import { Routes, Route, Navigate } from "react-router-dom"
 import { AppLayout } from "@/components/layout/app-layout"
 import { Dashboard } from "@/pages/Dashboard"
 import { Timeline } from "@/pages/Timeline"
-import { Pulls } from "@/pages/Pulls"
+// import { Pulls } from "@/pages/Pulls" // Disabled: pull tracker deferred
+import { Tasks } from "@/pages/Tasks"
 import { Resources } from "@/pages/Resources"
 import { Login } from "@/pages/Login"
 import { useAuth } from "@/lib/auth"
@@ -115,7 +116,8 @@ function AppContent() {
         <Route element={<AppLayout />}>
           <Route path="/" element={<Dashboard />} />
           <Route path="/timeline" element={<Timeline />} />
-          <Route path="/pulls" element={<Pulls />} />
+          {/* <Route path="/pulls" element={<Pulls />} /> */}
+          <Route path="/tasks" element={<Tasks />} />
           <Route path="/resources" element={<Resources />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

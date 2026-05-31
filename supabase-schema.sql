@@ -96,6 +96,17 @@ create table public.event_claims (
   claimed_at text not null
 );
 
+create table public.tasks (
+  id bigint generated always as identity primary key,
+  user_id uuid references auth.users(id) on delete cascade not null default auth.uid(),
+  game_id text not null,
+  name text not null,
+  type text not null default 'daily',
+  is_completed boolean not null default false,
+  completed_at text,
+  sort_order integer not null default 0
+);
+
 -- ============================================================
 -- ROW LEVEL SECURITY
 -- ============================================================
@@ -106,6 +117,7 @@ alter table public.pulls enable row level security;
 alter table public.characters enable row level security;
 alter table public.combat_claims enable row level security;
 alter table public.event_claims enable row level security;
+alter table public.tasks enable row level security;
 
 -- Policy: users can only access their own rows
 create policy "Users can view own resources" on public.resources for select using (auth.uid() = user_id);
@@ -137,6 +149,11 @@ create policy "Users can view own event_claims" on public.event_claims for selec
 create policy "Users can insert own event_claims" on public.event_claims for insert with check (auth.uid() = user_id);
 create policy "Users can update own event_claims" on public.event_claims for update using (auth.uid() = user_id);
 create policy "Users can delete own event_claims" on public.event_claims for delete using (auth.uid() = user_id);
+
+create policy "Users can view own tasks" on public.tasks for select using (auth.uid() = user_id);
+create policy "Users can insert own tasks" on public.tasks for insert with check (auth.uid() = user_id);
+create policy "Users can update own tasks" on public.tasks for update using (auth.uid() = user_id);
+create policy "Users can delete own tasks" on public.tasks for delete using (auth.uid() = user_id);
 
 -- ============================================================
 -- STORAGE BUCKET (for character portraits)

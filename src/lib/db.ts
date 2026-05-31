@@ -91,6 +91,19 @@ export interface CombatRewardClaim {
   claimedAt: string
 }
 
+/** User-created daily/weekly task */
+export interface TaskItem {
+  id?: number
+  gameId: GameId
+  name: string
+  type: "daily" | "weekly"
+  isCompleted: boolean
+  /** ISO timestamp of when the task was last completed */
+  completedAt: string | null
+  /** Sort position within its game group */
+  sortOrder: number
+}
+
 /** Tracks which patch day / livestream events have been claimed */
 export interface EventRewardClaim {
   id?: number
@@ -109,6 +122,7 @@ const db = new Dexie("CrvnGachaTracker") as Dexie & {
   resources: EntityTable<ResourceSnapshot, "id">
   characters: EntityTable<CharacterRegistration, "id">
   combatClaims: EntityTable<CombatRewardClaim, "id">
+  tasks: EntityTable<TaskItem, "id">
   eventClaims: EntityTable<EventRewardClaim, "id">
 }
 
@@ -235,6 +249,16 @@ db.version(10).stores({
   return tx.table("timeline").toCollection().modify(entry => {
     if (entry.dateOverride === undefined) entry.dateOverride = undefined
   })
+})
+
+db.version(11).stores({
+  pulls: "++id, gameId, bannerType, timestamp, rarity",
+  timeline: "++id, gameId, version, startDate, bannerLane",
+  resources: "++id, gameId, updatedAt",
+  characters: "++id, gameId, displayName, internalId",
+  combatClaims: "++id, modeId, resetDate",
+  eventClaims: "++id, eventKey, gameId",
+  tasks: "++id, gameId, type, sortOrder",
 })
 
 export { db }
