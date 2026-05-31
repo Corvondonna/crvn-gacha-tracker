@@ -299,7 +299,6 @@ function GameSection({
         background: "hsla(0, 0%, 4%, 0.6)",
         border: `1px solid ${accentBg(0.15)}`,
         borderRadius: 4,
-        overflow: "hidden",
       }}
     >
       {/* Header */}
