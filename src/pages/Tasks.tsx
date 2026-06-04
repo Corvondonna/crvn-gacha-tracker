@@ -159,6 +159,38 @@ function shouldShow(task: TaskItem): boolean {
 }
 
 /**
+ * Deduplicates tasks by gameId + name + type.
+ * Keeps the entry with the highest ID (most recent insert).
+ */
+async function deduplicateTasks(): Promise<number> {
+  const allTasks = await db.tasks.toArray()
+  const seen = new Map<string, number>()
+  const toDelete: number[] = []
+
+  for (const task of allTasks) {
+    const key = `${task.gameId}:${task.name}:${task.type}`
+    const existing = seen.get(key)
+    if (existing === undefined) {
+      seen.set(key, task.id!)
+    } else {
+      // Keep the higher ID, delete the lower
+      if (task.id! > existing) {
+        toDelete.push(existing)
+        seen.set(key, task.id!)
+      } else {
+        toDelete.push(task.id!)
+      }
+    }
+  }
+
+  if (toDelete.length > 0) {
+    await db.tasks.bulkDelete(toDelete)
+    console.log(`[tasks] Deduplicated: removed ${toDelete.length} duplicate(s)`)
+  }
+  return toDelete.length
+}
+
+/**
  * Auto-reset: if a task was completed before the last reset, uncheck it.
  */
 async function autoResetTasks(): Promise<number> {
@@ -606,15 +638,17 @@ export function Tasks() {
     return () => window.removeEventListener("game-visibility", handler)
   }, [])
 
-  // Auto-reset on mount
+  // Dedup + auto-reset on mount
   useEffect(() => {
     if (resetDone.current) return
     resetDone.current = true
-    autoResetTasks().then((count) => {
-      if (count > 0) {
-        pushToCloud().catch(console.error)
-        setDataVersion((v) => v + 1)
-      }
+    deduplicateTasks().then((dedupCount) => {
+      autoResetTasks().then((resetCount) => {
+        if (dedupCount > 0 || resetCount > 0) {
+          pushToCloud().catch(console.error)
+          setDataVersion((v) => v + 1)
+        }
+      })
     })
   }, [])
 
