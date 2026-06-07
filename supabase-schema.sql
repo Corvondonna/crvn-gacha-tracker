@@ -104,7 +104,8 @@ create table public.tasks (
   type text not null default 'daily',
   is_completed boolean not null default false,
   completed_at text,
-  sort_order integer not null default 0
+  sort_order integer not null default 0,
+  scheduled_time text
 );
 
 -- ============================================================

@@ -14,6 +14,7 @@ const TASK_TYPES: { value: TaskType; label: string }[] = [
   { value: "event", label: "Event" },
   { value: "quest", label: "Quest" },
   { value: "endgame", label: "Endgame" },
+  { value: "farm", label: "Farm" },
 ]
 
 const TYPE_COLORS: Record<TaskType, { bg: string; color: string; border: string }> = {
@@ -22,6 +23,7 @@ const TYPE_COLORS: Record<TaskType, { bg: string; color: string; border: string 
   event: { bg: "hsla(45, 80%, 55%, 0.12)", color: "hsl(45, 80%, 55%)", border: "hsla(45, 80%, 55%, 0.2)" },
   quest: { bg: "hsla(142, 60%, 50%, 0.12)", color: "hsl(142, 60%, 50%)", border: "hsla(142, 60%, 50%, 0.2)" },
   endgame: { bg: "hsla(0, 70%, 50%, 0.12)", color: "hsl(0, 70%, 55%)", border: "hsla(0, 70%, 50%, 0.2)" },
+  farm: { bg: "hsla(30, 70%, 45%, 0.12)", color: "hsl(30, 70%, 55%)", border: "hsla(30, 70%, 45%, 0.2)" },
 }
 
 function TypeDropdown({
@@ -150,6 +152,8 @@ function shouldShow(task: TaskItem): boolean {
   if (!task.isCompleted || !task.completedAt) return true
   // Only daily and weekly tasks auto-hide after reset
   if (task.type !== "daily" && task.type !== "weekly") return true
+  // "others" has no reset schedule
+  if (task.gameId === "others") return true
   const game = GAMES[task.gameId]
   const resetHour = game.dailyResetHour
   const lastReset = task.type === "weekly"
@@ -200,6 +204,8 @@ async function autoResetTasks(): Promise<number> {
     if (!task.isCompleted || !task.completedAt) continue
     // Only daily and weekly tasks auto-reset
     if (task.type !== "daily" && task.type !== "weekly") continue
+    // "others" has no reset schedule
+    if (task.gameId === "others") continue
     const game = GAMES[task.gameId]
     const resetHour = game.dailyResetHour
     const lastReset = task.type === "weekly"
@@ -218,17 +224,20 @@ function GameSection({
   tasks,
   onRefresh,
 }: {
-  gameId: GameId
+  gameId: GameId | "others"
   tasks: TaskItem[]
   onRefresh: () => void
 }) {
-  const game = GAMES[gameId]
-  const accentColor = `hsl(var(${game.accentVar}))`
-  const accentBg = (opacity: number) => `hsla(var(${game.accentVar}) / ${opacity})`
+  const isOthers = gameId === "others"
+  const game = isOthers ? null : GAMES[gameId]
+  const shortName = isOthers ? "Others" : game!.shortName
+  const accentColor = isOthers ? "hsl(0, 0%, 60%)" : `hsl(var(${game!.accentVar}))`
+  const accentBg = (opacity: number) => isOthers ? `hsla(0, 0%, 50%, ${opacity})` : `hsla(var(${game!.accentVar}) / ${opacity})`
 
   const [collapsed, setCollapsed] = useState(false)
   const [newName, setNewName] = useState("")
   const [newType, setNewType] = useState<TaskType>("daily")
+  const [newTime, setNewTime] = useState("")
   const [showAdd, setShowAdd] = useState(false)
   const [dragTaskId, setDragTaskId] = useState<number | null>(null)
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
@@ -248,9 +257,11 @@ function GameSection({
       isCompleted: false,
       completedAt: null,
       sortOrder: maxOrder + 1,
+      scheduledTime: newTime || undefined,
     })
 
     setNewName("")
+    setNewTime("")
     setShowAdd(false)
     pushToCloud().catch(console.error)
     onRefresh()
@@ -366,7 +377,7 @@ function GameSection({
               textTransform: "uppercase",
             }}
           >
-            {game.shortName}
+            {shortName}
           </span>
           <span
             style={{
@@ -480,6 +491,20 @@ function GameSection({
                 {task.name}
               </span>
 
+              {/* Scheduled time */}
+              {task.scheduledTime && (
+                <span
+                  style={{
+                    fontSize: 9,
+                    fontFamily: MONO,
+                    color: "hsla(0,0%,100%,0.3)",
+                    flexShrink: 0,
+                  }}
+                >
+                  {task.scheduledTime}
+                </span>
+              )}
+
               {/* Type tag */}
               <span
                 style={{
@@ -553,6 +578,24 @@ function GameSection({
                 value={newType}
                 onChange={setNewType}
               />
+              <input
+                type="time"
+                value={newTime}
+                onChange={(e) => setNewTime(e.target.value)}
+                placeholder="Time"
+                style={{
+                  padding: "5px 6px",
+                  borderRadius: 3,
+                  fontSize: 10,
+                  fontFamily: MONO,
+                  background: "hsla(0,0%,100%,0.04)",
+                  border: "1px solid hsla(0,0%,100%,0.08)",
+                  outline: "none",
+                  color: "hsla(0,0%,100%,0.5)",
+                  width: 70,
+                  colorScheme: "dark",
+                }}
+              />
               <button
                 onClick={handleAdd}
                 style={{
@@ -574,6 +617,7 @@ function GameSection({
                 onClick={() => {
                   setShowAdd(false)
                   setNewName("")
+                  setNewTime("")
                 }}
                 style={{
                   padding: "4px 8px",
@@ -692,6 +736,13 @@ export function Tasks() {
             onRefresh={handleRefresh}
           />
         ))}
+        {/* Others section - always visible, no game config */}
+        <GameSection
+          key="others"
+          gameId="others"
+          tasks={tasks.filter((t) => t.gameId === "others")}
+          onRefresh={handleRefresh}
+        />
       </div>
     </div>
   )

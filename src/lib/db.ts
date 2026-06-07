@@ -94,14 +94,16 @@ export interface CombatRewardClaim {
 /** User-created daily/weekly task */
 export interface TaskItem {
   id?: number
-  gameId: GameId
+  gameId: GameId | "others"
   name: string
-  type: "daily" | "weekly" | "event" | "quest" | "endgame"
+  type: "daily" | "weekly" | "event" | "quest" | "endgame" | "farm"
   isCompleted: boolean
   /** ISO timestamp of when the task was last completed */
   completedAt: string | null
   /** Sort position within its game group */
   sortOrder: number
+  /** Scheduled time in HH:MM format (e.g., "20:00") */
+  scheduledTime?: string
 }
 
 /** Tracks which patch day / livestream events have been claimed */

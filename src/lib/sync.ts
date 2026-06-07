@@ -156,6 +156,7 @@ export async function pullFromCloud(): Promise<void> {
       isCompleted: t.is_completed,
       completedAt: t.completed_at,
       sortOrder: t.sort_order,
+      scheduledTime: t.scheduled_time ?? undefined,
       _cloudId: t.id,
     }))
     await db.tasks.bulkAdd(mapped as unknown as TaskItem[])
@@ -408,6 +409,7 @@ async function _pushToCloudImpl(): Promise<void> {
       is_completed: t.isCompleted,
       completed_at: t.completedAt,
       sort_order: t.sortOrder,
+      scheduled_time: t.scheduledTime ?? null,
     }))
     insertOps.push(supabase.from("tasks").insert(mapped))
   }
