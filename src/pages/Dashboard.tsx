@@ -210,6 +210,7 @@ export function Dashboard() {
 
           // Compute pulls and probability
           let totalPulls = 0
+          let totalWeaponPulls = 0
           let prob: ProbabilityResult | null = null
           const isPullingWeapon = card.entry?.pullingWeapon ?? false
           const isUma = card.gameId === "uma"
@@ -255,7 +256,7 @@ export function Dashboard() {
                   const weaponPullItemCount = game.weaponPullItem
                     ? (res.weaponPullItems ?? 0) + projected.weaponPullItems
                     : charPullItems
-                  const totalWeaponPulls = weaponPullItemCount + currencyPulls
+                  totalWeaponPulls = weaponPullItemCount + currencyPulls
 
                   prob = computeCombinedProbability(
                     card.gameId,
@@ -495,16 +496,27 @@ export function Dashboard() {
                   <div style={{ fontSize: 10, color: "hsl(var(--muted-foreground))", marginBottom: 4 }}>
                     Est. Pulls
                   </div>
-                  <div
-                    style={{
-                      fontSize: 18,
-                      fontWeight: 700,
-                      color: accent,
-                      fontVariantNumeric: "tabular-nums",
-                    }}
-                  >
-                    {totalPulls}
-                  </div>
+                  {isPullingWeapon && totalWeaponPulls > 0 ? (
+                    <div style={{ fontVariantNumeric: "tabular-nums" }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: accent }}>
+                        {totalPulls}c
+                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: accent, marginTop: -2 }}>
+                        {totalWeaponPulls}w
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        fontSize: 18,
+                        fontWeight: 700,
+                        color: accent,
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      {totalPulls}
+                    </div>
+                  )}
                 </div>
 
                 {/* Divider */}

@@ -170,9 +170,13 @@ export function projectIncomeUntil(
     }
   }
 
-  // Monthly pull item bonus: HoYoverse games give 5 pullItems on the 1st of each month
+  // Monthly pull item bonus: most games give 5 pullItems on the 1st of each month
+  // NTE also gives 20 Triple Keys (weapon pull items) monthly
   if (gameId !== "wuwa") {
     const MONTHLY_PULL_ITEMS = 5
+    const MONTHLY_WEAPON_PULL_ITEMS: Partial<Record<GameId, number>> = {
+      nte: 20,
+    }
     const startMonth = new Date(now.getFullYear(), now.getMonth(), 1)
     const current = new Date(startMonth)
     current.setMonth(current.getMonth() + 1) // start from next 1st
@@ -180,6 +184,8 @@ export function projectIncomeUntil(
     while (current <= targetDate) {
       if (current > now) {
         bonusPullItems += MONTHLY_PULL_ITEMS
+        const weaponMonthly = MONTHLY_WEAPON_PULL_ITEMS[gameId]
+        if (weaponMonthly) bonusWeaponPullItems += weaponMonthly
       }
       current.setMonth(current.getMonth() + 1)
     }

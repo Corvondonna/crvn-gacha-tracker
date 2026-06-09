@@ -17,6 +17,8 @@ interface NodeEditorProps {
   isCreateMode?: boolean
   /** Whether the current date came from a user override (vs calculated) */
   isManualDate?: boolean
+  /** Patch start dates for income projection (patch day / livestream rewards) */
+  patchStartMap?: Map<string, Date>
 }
 
 const VALUE_TIERS = [
@@ -104,10 +106,11 @@ function InfoIcon({ tooltip }: { tooltip: string }) {
   )
 }
 
-function ProbRow({ label, result, pulls, formula }: {
+function ProbRow({ label, result, pulls, weaponPulls, formula }: {
   label: string
   result: ProbabilityResult
   pulls: number
+  weaponPulls?: number
   formula?: string
 }) {
   const color = probTierColor(result.tier)
@@ -119,7 +122,7 @@ function ProbRow({ label, result, pulls, formula }: {
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ fontSize: 10, fontFamily: MONO_FONT, color: "hsla(0,0%,100%,0.3)" }}>
-          {pulls} pulls
+          {weaponPulls != null ? `${pulls}c + ${weaponPulls}w` : `${pulls} pulls`}
         </span>
         <span
           style={{
@@ -138,7 +141,7 @@ function ProbRow({ label, result, pulls, formula }: {
   )
 }
 
-export function NodeEditor({ gameId, version, phase, date: initialDate, onClose, onSave, isCreateMode, isManualDate: initialIsManual }: NodeEditorProps) {
+export function NodeEditor({ gameId, version, phase, date: initialDate, onClose, onSave, isCreateMode, isManualDate: initialIsManual, patchStartMap }: NodeEditorProps) {
   const game = GAMES[gameId]
   const panelRef = useRef<HTMLDivElement>(null)
 
@@ -362,7 +365,7 @@ export function NodeEditor({ gameId, version, phase, date: initialDate, onClose,
     if (!resource) return null
 
     const config = GAMES[gameId]
-    const projected = projectIncomeUntil(gameId, resource, date)
+    const projected = projectIncomeUntil(gameId, resource, date, patchStartMap)
 
     const paidCurrency = resource.paidCurrency ?? 0
     const totalCurrency = (resource.currency ?? 0) + paidCurrency + projected.currency
@@ -432,7 +435,7 @@ export function NodeEditor({ gameId, version, phase, date: initialDate, onClose,
       weaponPity,
       weaponGuaranteed,
     }
-  }, [resource, gameId, date, isUma, bannerLane, rateUpPercent, dupeCount])
+  }, [resource, gameId, date, isUma, bannerLane, rateUpPercent, dupeCount, patchStartMap])
 
   const accentColor = `hsl(var(${game.accentVar}))`
   const accentBg = (opacity: number) => `hsla(var(${game.accentVar}) / ${opacity})`
@@ -962,6 +965,7 @@ export function NodeEditor({ gameId, version, phase, date: initialDate, onClose,
                     label="Char + Weapon"
                     result={probabilities.combined}
                     pulls={probabilities.totalCharPulls}
+                    weaponPulls={probabilities.totalWeaponPulls}
                     formula={[
                       `P(both) = P(character) \u00D7 P(weapon)`,
                       ``,

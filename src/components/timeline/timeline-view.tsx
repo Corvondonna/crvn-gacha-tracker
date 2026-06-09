@@ -1990,6 +1990,7 @@ export function TimelineView() {
           onSave={() => setDataVersion((v) => v + 1)}
           isCreateMode={editorTarget.isCreateMode}
           isManualDate={editorTarget.isManualDate}
+          patchStartMap={patchStartMap}
         />
       )}
     </div>
