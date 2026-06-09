@@ -114,6 +114,7 @@ function ProbRow({ label, result, pulls, weaponPulls, formula }: {
   formula?: string
 }) {
   const color = probTierColor(result.tier)
+  const displayPulls = weaponPulls != null ? pulls + weaponPulls : pulls
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
@@ -122,7 +123,7 @@ function ProbRow({ label, result, pulls, weaponPulls, formula }: {
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ fontSize: 10, fontFamily: MONO_FONT, color: "hsla(0,0%,100%,0.3)" }}>
-          {weaponPulls != null ? `${pulls}c + ${weaponPulls}w` : `${pulls} pulls`}
+          {`${displayPulls} pulls`}
         </span>
         <span
           style={{
@@ -414,10 +415,15 @@ export function NodeEditor({ gameId, version, phase, date: initialDate, onClose,
     const weaponPity = resource.weaponCurrentPity ?? 0
     const weaponGuaranteed = resource.weaponIsGuaranteed ?? false
     const weaponFP = 0
+    // For separate-pool games (NTE, WuWa), weapon pulls = dedicated items only.
+    // Currency is already counted in character pulls, so don't add it again.
+    // For shared-pool games, weapon uses the same pool as character.
     const weaponPullItemCount = config.weaponPullItem
       ? (resource.weaponPullItems ?? 0) + projected.weaponPullItems
       : charPullItems
-    const totalWeaponPulls = weaponPullItemCount + currencyPulls
+    const totalWeaponPulls = config.weaponPullItem
+      ? weaponPullItemCount
+      : weaponPullItemCount + currencyPulls
 
     const combined = computeCombinedProbability(
       gameId,

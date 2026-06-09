@@ -253,10 +253,15 @@ export function Dashboard() {
                   const weaponPity = res.weaponCurrentPity ?? 0
                   const weaponGuaranteed = res.weaponIsGuaranteed ?? false
                   const weaponFP = 0
+                  // For separate-pool games (NTE, WuWa), weapon pulls = dedicated items only.
+                  // Currency is already counted in character pulls, so don't add it again.
+                  // For shared-pool games, weapon uses the same pool as character.
                   const weaponPullItemCount = game.weaponPullItem
                     ? (res.weaponPullItems ?? 0) + projected.weaponPullItems
                     : charPullItems
-                  totalWeaponPulls = weaponPullItemCount + currencyPulls
+                  totalWeaponPulls = game.weaponPullItem
+                    ? weaponPullItemCount
+                    : weaponPullItemCount + currencyPulls
 
                   prob = computeCombinedProbability(
                     card.gameId,
@@ -496,27 +501,16 @@ export function Dashboard() {
                   <div style={{ fontSize: 10, color: "hsl(var(--muted-foreground))", marginBottom: 4 }}>
                     Est. Pulls
                   </div>
-                  {isPullingWeapon && totalWeaponPulls > 0 ? (
-                    <div style={{ fontVariantNumeric: "tabular-nums" }}>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: accent }}>
-                        {totalPulls}c
-                      </div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: accent, marginTop: -2 }}>
-                        {totalWeaponPulls}w
-                      </div>
-                    </div>
-                  ) : (
-                    <div
-                      style={{
-                        fontSize: 18,
-                        fontWeight: 700,
-                        color: accent,
-                        fontVariantNumeric: "tabular-nums",
-                      }}
-                    >
-                      {totalPulls}
-                    </div>
-                  )}
+                  <div
+                    style={{
+                      fontSize: 18,
+                      fontWeight: 700,
+                      color: accent,
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    {isPullingWeapon ? totalPulls + totalWeaponPulls : totalPulls}
+                  </div>
                 </div>
 
                 {/* Divider */}

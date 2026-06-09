@@ -1313,12 +1313,18 @@ export function TimelineView() {
           const weaponPullItemCount = config.weaponPullItem
             ? (res?.weaponPullItems ?? 0) + projected.weaponPullItems
             : charPullItems
-          const totalWeaponPulls = weaponPullItemCount + currencyPulls
+          const totalWeaponPulls = config.weaponPullItem
+            ? weaponPullItemCount
+            : weaponPullItemCount + currencyPulls
           result = computeCombinedProbability(
             node.gameId,
             currentPity, totalCharPulls, isGuaranteed,
             weaponPity, totalWeaponPulls, weaponGuaranteed, weaponFP
           )
+          // Display total pulls (char + weapon) for separate-pool games
+          if (config.weaponPullItem) {
+            result = { ...result, pulls: totalCharPulls + totalWeaponPulls }
+          }
         } else {
           result = computeCharacterProbability(node.gameId, currentPity, totalCharPulls, isGuaranteed)
         }
