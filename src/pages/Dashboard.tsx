@@ -509,7 +509,7 @@ export function Dashboard() {
                       fontVariantNumeric: "tabular-nums",
                     }}
                   >
-                    {isPullingWeapon ? totalPulls + totalWeaponPulls : totalPulls}
+                    {isPullingWeapon && game.weaponPullItem ? totalPulls + totalWeaponPulls : totalPulls}
                   </div>
                 </div>
 

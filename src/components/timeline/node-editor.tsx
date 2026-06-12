@@ -971,7 +971,7 @@ export function NodeEditor({ gameId, version, phase, date: initialDate, onClose,
                     label="Char + Weapon"
                     result={probabilities.combined}
                     pulls={probabilities.totalCharPulls}
-                    weaponPulls={probabilities.totalWeaponPulls}
+                    weaponPulls={game.weaponPullItem ? probabilities.totalWeaponPulls : undefined}
                     formula={[
                       `P(both) = P(character) \u00D7 P(weapon)`,
                       ``,
