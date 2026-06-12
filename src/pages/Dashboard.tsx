@@ -113,7 +113,7 @@ export function Dashboard() {
           gameId: anchor.gameId,
           version: found.version,
           phase: found.phase as 1 | 2,
-          date: found.date,
+          date: foundEntry.dateOverride ? new Date(foundEntry.dateOverride) : found.date,
           entry: foundEntry,
           resource: resources.get(anchor.gameId) ?? null,
         })
@@ -128,7 +128,7 @@ export function Dashboard() {
             gameId: anchor.gameId,
             version: firstNode.version,
             phase: firstNode.phase as 1 | 2,
-            date: firstNode.date,
+            date: entry?.dateOverride ? new Date(entry.dateOverride) : firstNode.date,
             entry: entry ?? null,
             resource: resources.get(anchor.gameId) ?? null,
           })
