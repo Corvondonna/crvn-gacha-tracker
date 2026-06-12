@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react"
 import { GAMES, GAME_IDS, type GameId } from "@/lib/games"
 import { db, type TimelineEntry, type ResourceSnapshot } from "@/lib/db"
 import { generatePatchSeries, patchesToNodes, type TimelineNode } from "@/lib/timeline"
-import { PATCH_ANCHORS } from "@/data/patch-anchors"
+import { PATCH_ANCHORS, type PatchDateOverride } from "@/data/patch-anchors"
 import { computeCharacterProbability, computeCombinedProbability, computeSparkProbability, type ProbabilityResult } from "@/lib/probability"
 import { projectIncomeUntil } from "@/lib/daily-income"
 
@@ -65,6 +65,20 @@ export function Dashboard() {
     }
   }, [entries])
 
+  // Build runtime date overrides from user-edited entries (same as timeline-view)
+  const runtimeOverrides = useMemo(() => {
+    const overrides = new Map<string, PatchDateOverride>()
+    for (const e of entries) {
+      if (!e.dateOverride) continue
+      const overrideKey = `${e.gameId}:${e.version}`
+      const existing = overrides.get(overrideKey) ?? {}
+      if (e.phase === 1) existing.phase1Start = new Date(e.dateOverride)
+      if (e.phase === 2) existing.phase2Start = new Date(e.dateOverride)
+      overrides.set(overrideKey, existing)
+    }
+    return overrides
+  }, [entries])
+
   // Find next upcoming registered character per game
   const upcomingCards = useMemo(() => {
     const now = new Date()
@@ -79,7 +93,7 @@ export function Dashboard() {
 
     for (const anchor of PATCH_ANCHORS) {
       const patches = generatePatchSeries(
-        anchor.gameId, anchor.version, anchor.phase1Start, now, rangeEnd
+        anchor.gameId, anchor.version, anchor.phase1Start, now, rangeEnd, runtimeOverrides
       )
       for (const p of patches) {
         patchStartMap.set(`${p.gameId}:${p.version}`, p.phase1Start)
@@ -166,7 +180,7 @@ export function Dashboard() {
     }
 
     return { cards, patchStartMap }
-  }, [entries, resources])
+  }, [entries, resources, runtimeOverrides])
 
   return (
     <div style={{ padding: 48, height: "100%", overflowY: "auto" }}>
