@@ -5,6 +5,7 @@ import { generatePatchSeries, patchesToNodes, type TimelineNode } from "@/lib/ti
 import { PATCH_ANCHORS, type PatchDateOverride } from "@/data/patch-anchors"
 import { computeCharacterProbability, computeCombinedProbability, computeSparkProbability, type ProbabilityResult } from "@/lib/probability"
 import { projectIncomeUntil } from "@/lib/daily-income"
+import { PORTRAITS_UPDATED_EVENT } from "@/lib/sync"
 
 function probTierColor(tier: ProbabilityResult["tier"]): string {
   switch (tier) {
@@ -29,6 +30,14 @@ export function Dashboard() {
   const [entries, setEntries] = useState<TimelineEntry[]>([])
   const [resources, setResources] = useState<Map<GameId, ResourceSnapshot>>(new Map())
   const [portraitUrls, setPortraitUrls] = useState<Map<string, string>>(new Map())
+  const [dataVersion, setDataVersion] = useState(0)
+
+  // Re-read Dexie when background portrait downloads finish
+  useEffect(() => {
+    const onPortraits = () => setDataVersion((v) => v + 1)
+    window.addEventListener(PORTRAITS_UPDATED_EVENT, onPortraits)
+    return () => window.removeEventListener(PORTRAITS_UPDATED_EVENT, onPortraits)
+  }, [])
 
   // Load timeline entries and resources
   useEffect(() => {
@@ -48,7 +57,7 @@ export function Dashboard() {
       setResources(resMap)
     }
     load()
-  }, [])
+  }, [dataVersion])
 
   // Build portrait URLs
   useEffect(() => {

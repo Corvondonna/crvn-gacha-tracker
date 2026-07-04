@@ -53,7 +53,7 @@ export async function pullFromCloud(): Promise<void> {
   }
 
   // --- Timeline (data first, portraits downloaded in background) ---
-  const portraitDownloads: { dexieId: number; url: string }[] = []
+  const portraitDownloads: { dexieId: number; url: string; isRecovery?: boolean }[] = []
   if (cloudTimeline && cloudTimeline.length > 0) {
     await db.timeline.clear()
     for (const t of cloudTimeline) {
@@ -64,6 +64,7 @@ export async function pullFromCloud(): Promise<void> {
         startDate: t.start_date,
         characterName: t.character_name,
         characterPortrait: null, // filled in background
+        portraitPath: t.character_portrait_url ?? null,
         valueTier: t.value_tier,
         isSpeculation: t.is_speculation,
         isPriority: t.is_priority,
@@ -79,6 +80,14 @@ export async function pullFromCloud(): Promise<void> {
 
       if (t.character_portrait_url && dexieId) {
         portraitDownloads.push({ dexieId: dexieId as number, url: t.character_portrait_url })
+      } else if (t.character_name && dexieId) {
+        // Recovery: earlier syncs wiped character_portrait_url, but the blob may
+        // still exist in Storage at its deterministic path. Try to restore it.
+        portraitDownloads.push({
+          dexieId: dexieId as number,
+          url: portraitStoragePath(t.game_id, t.version, t.phase, t.character_name),
+          isRecovery: true,
+        })
       }
     }
   }
@@ -171,28 +180,69 @@ export async function pullFromCloud(): Promise<void> {
   }
 }
 
+/** Builds the deterministic Storage path for a timeline portrait. */
+export function portraitStoragePath(
+  gameId: string,
+  version: string,
+  phase: number,
+  characterName: string | null
+): string {
+  const safeName = (characterName ?? "unknown").replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase()
+  return `timeline/${gameId}/${version}-p${phase}-${safeName}.png`
+}
+
+/** Event name fired whenever background portrait downloads write new blobs to Dexie. */
+export const PORTRAITS_UPDATED_EVENT = "crvn-portraits-updated"
+
+/**
+ * Deletes a portrait file from Supabase Storage.
+ * Call when the user explicitly removes a portrait, so the
+ * pull-time recovery logic doesn't resurrect it from Storage.
+ */
+export async function deletePortraitFromStorage(
+  gameId: string,
+  version: string,
+  phase: number,
+  characterName: string | null
+): Promise<void> {
+  try {
+    await supabase.storage
+      .from("portraits")
+      .remove([portraitStoragePath(gameId, version, phase, characterName)])
+  } catch { /* best effort */ }
+}
+
 /**
  * Downloads portrait blobs from Supabase Storage in parallel
  * and updates Dexie entries as they arrive. Runs after the page loads.
+ * Dispatches PORTRAITS_UPDATED_EVENT so mounted views can re-read Dexie.
  */
 async function downloadPortraitsInBackground(
-  downloads: { dexieId: number; url: string }[]
+  downloads: { dexieId: number; url: string; isRecovery?: boolean }[]
 ): Promise<void> {
   const BATCH_SIZE = 5
+  let anyDownloaded = false
   for (let i = 0; i < downloads.length; i += BATCH_SIZE) {
     const batch = downloads.slice(i, i + BATCH_SIZE)
     await Promise.all(
-      batch.map(async ({ dexieId, url }) => {
+      batch.map(async ({ dexieId, url, isRecovery }) => {
         try {
           const { data } = await supabase.storage
             .from("portraits")
             .download(url)
           if (data) {
-            await db.timeline.update(dexieId, { characterPortrait: data })
+            // On recovery, also restore the path so the next push re-links the cloud row
+            await db.timeline.update(dexieId, isRecovery
+              ? { characterPortrait: data, portraitPath: url }
+              : { characterPortrait: data })
+            anyDownloaded = true
           }
         } catch { /* portrait missing, skip */ }
       })
     )
+    if (anyDownloaded) {
+      window.dispatchEvent(new CustomEvent(PORTRAITS_UPDATED_EVENT))
+    }
   }
 }
 
@@ -284,11 +334,13 @@ async function _pushToCloudImpl(): Promise<void> {
   if (localTimeline.length > 0) {
     const mapped = []
     for (const t of localTimeline) {
-      let portraitPath: string | null = null
+      // Preserve the known Storage path even when the blob hasn't been
+      // downloaded locally yet (background download still in flight).
+      // Overwriting it with null here is what wiped portraits from the cloud.
+      let portraitPath: string | null = t.portraitPath ?? null
 
       if (t.characterPortrait) {
-        const safeName = (t.characterName ?? "unknown").replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase()
-        portraitPath = `timeline/${t.gameId}/${t.version}-p${t.phase}-${safeName}.png`
+        portraitPath = portraitStoragePath(t.gameId, t.version, t.phase, t.characterName)
         await supabase.storage
           .from("portraits")
           .upload(portraitPath, t.characterPortrait, {

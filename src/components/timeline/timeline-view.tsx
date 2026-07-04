@@ -16,7 +16,7 @@ import { projectIncomeUntil } from "@/lib/daily-income"
 import { COMBAT_MODES, getCombatModeResets, type CombatMode, type CombatIcon } from "@/data/combat-modes"
 import { getCombatNodesVisible, getWeeklyNodesVisible, getGameVisibility } from "@/components/layout/sidebar"
 import { UMA_SCENARIOS } from "@/data/uma-scenarios"
-import { pushToCloud, deduplicateTimeline } from "@/lib/sync"
+import { pushToCloud, deduplicateTimeline, PORTRAITS_UPDATED_EVENT } from "@/lib/sync"
 import { NodeEditor } from "./node-editor"
 
 const BASE_MONTH_WIDTH = 240
@@ -963,6 +963,13 @@ export function TimelineView() {
     window.addEventListener("resize", measureHeight)
     return () => window.removeEventListener("resize", measureHeight)
   }, [measureHeight])
+
+  // Re-read Dexie when background portrait downloads finish
+  useEffect(() => {
+    const onPortraits = () => setDataVersion((v) => v + 1)
+    window.addEventListener(PORTRAITS_UPDATED_EVENT, onPortraits)
+    return () => window.removeEventListener(PORTRAITS_UPDATED_EVENT, onPortraits)
+  }, [])
 
   // Load saved timeline entries from Dexie
   useEffect(() => {

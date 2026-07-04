@@ -3,7 +3,7 @@ import { GAMES, type GameId } from "@/lib/games"
 import { db, type TimelineEntry, type ResourceSnapshot } from "@/lib/db"
 import { computeCharacterProbability, computeCombinedProbability, computeSparkProbability, type ProbabilityResult } from "@/lib/probability"
 import { projectIncomeUntil } from "@/lib/daily-income"
-import { pushToCloud } from "@/lib/sync"
+import { pushToCloud, portraitStoragePath, deletePortraitFromStorage } from "@/lib/sync"
 import { DatePicker } from "@/components/ui/date-picker"
 
 interface NodeEditorProps {
@@ -163,6 +163,7 @@ export function NodeEditor({ gameId, version, phase, date: initialDate, onClose,
   const [bannerDurationDays, setBannerDurationDays] = useState(14)
   const [portraitPreview, setPortraitPreview] = useState<string | null>(null)
   const [portraitBlob, setPortraitBlob] = useState<Blob | null>(null)
+  const [portraitRemoved, setPortraitRemoved] = useState(false)
   const [resource, setResource] = useState<ResourceSnapshot | null>(null)
 
   // Load existing entry + resource snapshot
@@ -268,6 +269,7 @@ export function NodeEditor({ gameId, version, phase, date: initialDate, onClose,
             if (portraitPreview) URL.revokeObjectURL(portraitPreview)
             setPortraitBlob(blob)
             setPortraitPreview(URL.createObjectURL(blob))
+            setPortraitRemoved(false)
           }
           URL.revokeObjectURL(url)
         },
@@ -314,6 +316,13 @@ export function NodeEditor({ gameId, version, phase, date: initialDate, onClose,
       startDate: date.toISOString(),
       characterName: characterName.trim() || null,
       characterPortrait: portraitBlob,
+      // Keep portraitPath in sync: set when a blob exists, clear on explicit removal.
+      // Left untouched otherwise (partial update preserves an in-flight download's path).
+      ...(portraitBlob
+        ? { portraitPath: portraitStoragePath(gameId, effectiveVersion, phase, characterName.trim() || null) }
+        : portraitRemoved
+          ? { portraitPath: null }
+          : {}),
       valueTier,
       isSpeculation,
       isPriority,
@@ -337,6 +346,12 @@ export function NodeEditor({ gameId, version, phase, date: initialDate, onClose,
       console.log(`[node-editor] Added new entry id=${newId}, pullStatus=${pullStatus}, isPriority=${isPriority}`)
     }
 
+    // If the user removed the portrait, delete the Storage file so
+    // pull-time recovery can't resurrect it
+    if (portraitRemoved && !portraitBlob) {
+      deletePortraitFromStorage(gameId, effectiveVersion, phase, characterName.trim() || null)
+    }
+
     // Sync to cloud (includes portrait upload)
     pushToCloud().catch((err) => console.error("Cloud sync failed:", err))
 
@@ -357,6 +372,7 @@ export function NodeEditor({ gameId, version, phase, date: initialDate, onClose,
     if (portraitPreview) URL.revokeObjectURL(portraitPreview)
     setPortraitBlob(null)
     setPortraitPreview(null)
+    setPortraitRemoved(true)
   }
 
   const isUma = gameId === "uma"

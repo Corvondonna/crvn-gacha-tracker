@@ -22,6 +22,9 @@ export interface TimelineEntry {
   startDate: string
   characterName: string | null
   characterPortrait: Blob | null
+  /** Supabase Storage path of the portrait (e.g., "timeline/genshin/6.3-p1-columbina.png").
+   *  Kept even when the blob hasn't downloaded yet, so pushToCloud never wipes the cloud reference. */
+  portraitPath?: string | null
   valueTier: "limited" | "rerun" | "standard" | "four-star"
   isSpeculation: boolean
   isPriority: boolean
