@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { GAMES, type GameId } from "@/lib/games"
 import { db, type ResourceSnapshot } from "@/lib/db"
-import { pushToCloud } from "@/lib/sync"
+import { pushToCloud, RESOURCES_UPDATED_EVENT } from "@/lib/sync"
 import { DatePicker } from "@/components/ui/date-picker"
 
 function NumField({
@@ -36,9 +36,11 @@ function NumField({
           value={localVal}
           onChange={(e) => {
             const raw = e.target.value.replace(/[^0-9]/g, "")
-            setLocalVal(raw)
             const num = parseInt(raw) || 0
             const clamped = max !== undefined ? Math.min(num, max) : num
+            // Display must always match stored state: if the input got
+            // clamped, show the clamped value, not the raw text
+            setLocalVal(clamped !== num ? String(clamped) : raw)
             onChange(clamped)
           }}
           onBlur={() => {
@@ -154,35 +156,46 @@ export function GameResourceCard({ gameId, onSave }: GameResourceCardProps) {
   const [historyLoaded, setHistoryLoaded] = useState(false)
 
   // Load latest snapshot
-  useEffect(() => {
-    async function load() {
-      const snapshots = await db.resources
-        .where("gameId")
-        .equals(gameId)
-        .sortBy("updatedAt")
-      const latest = snapshots[snapshots.length - 1]
-      if (latest) {
-        setSnapshotId(latest.id ?? null)
-        setCurrency(latest.currency)
-        setPullItems(latest.pullItems)
-        setWeaponPullItems(latest.weaponPullItems ?? 0)
-        setPaidCurrency(latest.paidCurrency ?? 0)
-        setCurrentPity(latest.currentPity)
-        setIsGuaranteed(latest.isGuaranteed)
-        setWeaponCurrentPity(latest.weaponCurrentPity ?? 0)
-        setWeaponIsGuaranteed(latest.weaponIsGuaranteed ?? false)
-        setWeaponFatePoints(latest.weaponFatePoints ?? 0)
-        setSecondaryPullItems(latest.secondaryPullItems ?? 0)
-        setCharSparkCount(latest.charSparkCount ?? 0)
-        setSupportSparkCount(latest.supportSparkCount ?? 0)
-        setMonthlyPassActive(latest.monthlyPassActive)
-        setMonthlyPassExpiry(latest.monthlyPassExpiry ?? "")
-        setDailyCommissionsActive(latest.dailyCommissionsActive ?? false)
-      }
-      setLoaded(true)
+  const load = useCallback(async () => {
+    const snapshots = await db.resources
+      .where("gameId")
+      .equals(gameId)
+      .sortBy("updatedAt")
+    const latest = snapshots[snapshots.length - 1]
+    if (latest) {
+      setSnapshotId(latest.id ?? null)
+      setCurrency(latest.currency)
+      setPullItems(latest.pullItems)
+      setWeaponPullItems(latest.weaponPullItems ?? 0)
+      setPaidCurrency(latest.paidCurrency ?? 0)
+      setCurrentPity(latest.currentPity)
+      setIsGuaranteed(latest.isGuaranteed)
+      setWeaponCurrentPity(latest.weaponCurrentPity ?? 0)
+      setWeaponIsGuaranteed(latest.weaponIsGuaranteed ?? false)
+      setWeaponFatePoints(latest.weaponFatePoints ?? 0)
+      setSecondaryPullItems(latest.secondaryPullItems ?? 0)
+      setCharSparkCount(latest.charSparkCount ?? 0)
+      setSupportSparkCount(latest.supportSparkCount ?? 0)
+      setMonthlyPassActive(latest.monthlyPassActive)
+      setMonthlyPassExpiry(latest.monthlyPassExpiry ?? "")
+      setDailyCommissionsActive(latest.dailyCommissionsActive ?? false)
     }
-    load()
+    setLoaded(true)
   }, [gameId])
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  // Re-read Dexie after reward accumulations update snapshots.
+  // Skipped while the card has unsaved edits so user input isn't clobbered.
+  useEffect(() => {
+    const onUpdate = () => {
+      if (!dirty) load()
+    }
+    window.addEventListener(RESOURCES_UPDATED_EVENT, onUpdate)
+    return () => window.removeEventListener(RESOURCES_UPDATED_EVENT, onUpdate)
+  }, [dirty, load])
 
   const totalCurrency = currency + paidCurrency
   const totalPulls = pullItems + Math.floor(totalCurrency / game.currencyPerPull)

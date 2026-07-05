@@ -8,7 +8,7 @@ import { Tasks } from "@/pages/Tasks"
 import { Resources } from "@/pages/Resources"
 import { Login } from "@/pages/Login"
 import { useAuth } from "@/lib/auth"
-import { pullFromCloud, pushToCloud, cloudHasData, localHasData, cloudHasPortraits, deduplicateTimeline } from "@/lib/sync"
+import { pullFromCloud, pushToCloud, cloudHasData, localHasData, cloudHasPortraits, deduplicateTimeline, RESOURCES_UPDATED_EVENT } from "@/lib/sync"
 import { accumulateDailyIncome, type IncomeAccumulation } from "@/lib/daily-income"
 import { claimCombatRewards, reverseCombatRewardInflation, type CombatRewardResult } from "@/lib/combat-rewards"
 import { accumulateEventRewards, type EventRewardResult } from "@/lib/event-rewards"
@@ -83,6 +83,10 @@ function AppContent() {
       if (incomeResults.length > 0) setIncomeItems(incomeResults)
       if (combatResults.length > 0) setCombatItems(combatResults)
       if (eventResults.length > 0) setEventItems(eventResults)
+
+      // Tell mounted views (resource cards, dashboard, timeline) to
+      // re-read Dexie now that accumulations have updated snapshots
+      window.dispatchEvent(new CustomEvent(RESOURCES_UPDATED_EVENT))
 
       // Deduplicate before pushing to prevent stale duplicates from propagating
       await deduplicateTimeline()

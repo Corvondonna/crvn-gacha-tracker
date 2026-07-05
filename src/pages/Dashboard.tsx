@@ -5,7 +5,7 @@ import { generatePatchSeries, patchesToNodes, type TimelineNode } from "@/lib/ti
 import { PATCH_ANCHORS, type PatchDateOverride } from "@/data/patch-anchors"
 import { computeCharacterProbability, computeCombinedProbability, computeSparkProbability, type ProbabilityResult } from "@/lib/probability"
 import { projectIncomeUntil } from "@/lib/daily-income"
-import { PORTRAITS_UPDATED_EVENT } from "@/lib/sync"
+import { PORTRAITS_UPDATED_EVENT, RESOURCES_UPDATED_EVENT } from "@/lib/sync"
 
 function probTierColor(tier: ProbabilityResult["tier"]): string {
   switch (tier) {
@@ -32,11 +32,15 @@ export function Dashboard() {
   const [portraitUrls, setPortraitUrls] = useState<Map<string, string>>(new Map())
   const [dataVersion, setDataVersion] = useState(0)
 
-  // Re-read Dexie when background portrait downloads finish
+  // Re-read Dexie when portrait downloads or reward accumulations finish
   useEffect(() => {
-    const onPortraits = () => setDataVersion((v) => v + 1)
-    window.addEventListener(PORTRAITS_UPDATED_EVENT, onPortraits)
-    return () => window.removeEventListener(PORTRAITS_UPDATED_EVENT, onPortraits)
+    const onDataChanged = () => setDataVersion((v) => v + 1)
+    window.addEventListener(PORTRAITS_UPDATED_EVENT, onDataChanged)
+    window.addEventListener(RESOURCES_UPDATED_EVENT, onDataChanged)
+    return () => {
+      window.removeEventListener(PORTRAITS_UPDATED_EVENT, onDataChanged)
+      window.removeEventListener(RESOURCES_UPDATED_EVENT, onDataChanged)
+    }
   }, [])
 
   // Load timeline entries and resources

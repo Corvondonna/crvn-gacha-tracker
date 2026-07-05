@@ -194,6 +194,9 @@ export function portraitStoragePath(
 /** Event name fired whenever background portrait downloads write new blobs to Dexie. */
 export const PORTRAITS_UPDATED_EVENT = "crvn-portraits-updated"
 
+/** Event name fired after reward accumulations update resource snapshots in Dexie. */
+export const RESOURCES_UPDATED_EVENT = "crvn-resources-updated"
+
 /**
  * Deletes a portrait file from Supabase Storage.
  * Call when the user explicitly removes a portrait, so the
