@@ -10,8 +10,9 @@ export interface CombatRewardResult {
 
 /**
  * Tracks which combat mode resets have passed and adds rewards to
- * resource snapshots. For GI, HSR, and ZZZ the reward currency is
- * auto-converted into pull items (÷160). WuWa keeps raw currency.
+ * resource snapshots. Games with autoConvertCurrency (GI, HSR, ZZZ)
+ * convert reward currency into pull items (÷160). WuWa and NTE keep
+ * raw currency (Astrite stays Astrite, Annulith stays Annulith).
  *
  * Looks back up to 6 months to catch any missed resets.
  * Uses the combatClaims table to avoid double-counting.
@@ -105,14 +106,14 @@ export async function claimCombatRewards(
     const newCurrency = (latest.currency ?? 0) + totalReward
 
     // GI, HSR, ZZZ: auto-convert currency into pull items (÷160)
-    if (gameId !== "wuwa") {
+    if (game.autoConvertCurrency) {
       const extraPulls = Math.floor(newCurrency / game.currencyPerPull)
       await db.resources.update(latest.id, {
         currency: newCurrency % game.currencyPerPull,
         pullItems: (latest.pullItems ?? 0) + extraPulls,
       })
     } else {
-      // WuWa: keep as raw currency
+      // WuWa, NTE: keep as raw currency (Astrite stays Astrite, Annulith stays Annulith)
       await db.resources.update(latest.id, { currency: newCurrency })
     }
   }
