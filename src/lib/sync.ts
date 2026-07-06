@@ -18,38 +18,27 @@ export async function pullFromCloud(): Promise<void> {
     return
   }
 
-  // Fetch all tables in parallel (single network round-trip batch)
-  const results = await Promise.all([
-    supabase.from("resources").select("*"),
-    supabase.from("timeline").select("*"),
-    supabase.from("pulls").select("*"),
-    supabase.from("characters").select("*"),
-    supabase.from("combat_claims").select("*"),
-    supabase.from("event_claims").select("*"),
-    supabase.from("tasks").select("*"),
-  ])
-
-  // Supabase does NOT throw on errors — it returns { error }. If any select
-  // failed (expired session, RLS, network), abort instead of misreading the
-  // cloud as empty and corrupting local state.
-  const tableNames = ["resources", "timeline", "pulls", "characters", "combat_claims", "event_claims", "tasks"]
-  const selectErrors = results
-    .map((r, i) => (r.error ? `${tableNames[i]}: ${r.error.message}` : null))
-    .filter(Boolean)
-  if (selectErrors.length > 0) {
-    throw new Error(`[sync] Pull failed: ${selectErrors.join("; ")}`)
-  }
-
+  // Fetch all tables in parallel. fetchAllRows paginates past Supabase's
+  // 1000-row response cap — without it, tables beyond 1000 rows silently
+  // return only the OLDEST 1000 rows and the newest data never arrives.
   const [
-    { data: cloudResources },
-    { data: cloudTimeline },
-    { data: cloudPulls },
-    { data: cloudCharacters },
-    { data: cloudCombatClaims },
-    { data: cloudEventClaims },
-    { data: cloudTasks },
-  ] = results
-  console.log(`[sync] Pull: ${cloudResources?.length ?? 0} resources, ${cloudTimeline?.length ?? 0} timeline, ${cloudPulls?.length ?? 0} pulls`)
+    cloudResources,
+    cloudTimeline,
+    cloudPulls,
+    cloudCharacters,
+    cloudCombatClaims,
+    cloudEventClaims,
+    cloudTasks,
+  ] = await Promise.all([
+    fetchAllRows("resources"),
+    fetchAllRows("timeline"),
+    fetchAllRows("pulls"),
+    fetchAllRows("characters"),
+    fetchAllRows("combat_claims"),
+    fetchAllRows("event_claims"),
+    fetchAllRows("tasks"),
+  ])
+  console.log(`[sync] Pull: ${cloudResources.length} resources, ${cloudTimeline.length} timeline, ${cloudPulls.length} pulls`)
 
   // --- Resources ---
   if (cloudResources && cloudResources.length > 0) {
@@ -205,6 +194,59 @@ export async function pullFromCloud(): Promise<void> {
   }
 }
 
+/**
+ * Fetches ALL rows from a cloud table, paginating past the 1000-row
+ * PostgREST response cap. Throws on any query error — Supabase does not.
+ * Ordered by id so pagination windows are stable.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function fetchAllRows(table: string): Promise<any[]> {
+  const PAGE = 1000
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rows: any[] = []
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from(table)
+      .select("*")
+      .order("id", { ascending: true })
+      .range(from, from + PAGE - 1)
+    if (error) throw new Error(`[sync] Pull failed on ${table}: ${error.message}`)
+    rows.push(...(data ?? []))
+    if (!data || data.length < PAGE) break
+  }
+  return rows
+}
+
+/**
+ * Keeps only the newest N resource snapshots per game in Dexie.
+ * Every save and accumulation adds a snapshot; without pruning the table
+ * grows past the 1000-row pull cap and sync starts corrupting itself.
+ */
+export async function pruneResourceHistory(keepPerGame = 30): Promise<number> {
+  const all = await db.resources.toArray()
+  const byGame = new Map<string, ResourceSnapshot[]>()
+  for (const r of all) {
+    const arr = byGame.get(r.gameId) ?? []
+    arr.push(r)
+    byGame.set(r.gameId, arr)
+  }
+
+  const toDelete: number[] = []
+  for (const snaps of byGame.values()) {
+    if (snaps.length <= keepPerGame) continue
+    snaps.sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1)) // newest first
+    for (const old of snaps.slice(keepPerGame)) {
+      if (old.id != null) toDelete.push(old.id)
+    }
+  }
+
+  if (toDelete.length > 0) {
+    await db.resources.bulkDelete(toDelete)
+    console.log(`[sync] Pruned ${toDelete.length} old resource snapshot(s)`)
+  }
+  return toDelete.length
+}
+
 /** Builds the deterministic Storage path for a timeline portrait. */
 export function portraitStoragePath(
   gameId: string,
@@ -346,6 +388,10 @@ async function _pushToCloudImpl(): Promise<void> {
     console.warn(`[sync] Push BLOCKED: cloud is newer (${guardCloudTs} > ${guardLocalTs || "none"})`)
     return
   }
+
+  // Keep snapshot history bounded so the cloud table never exceeds the
+  // 1000-row pull cap again. Newest snapshots are always kept.
+  await pruneResourceHistory()
 
   // Read all local data in parallel
   const [localResources, localTimeline, localPulls, localCharacters, localCombatClaims, localEventClaims, localTasks] = await Promise.all([
