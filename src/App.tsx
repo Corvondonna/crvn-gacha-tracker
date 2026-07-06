@@ -8,7 +8,7 @@ import { Tasks } from "@/pages/Tasks"
 import { Resources } from "@/pages/Resources"
 import { Login } from "@/pages/Login"
 import { useAuth } from "@/lib/auth"
-import { pullFromCloud, pushToCloud, cloudHasData, localHasData, cloudHasPortraits, deduplicateTimeline, RESOURCES_UPDATED_EVENT } from "@/lib/sync"
+import { pullFromCloud, pushToCloud, cloudHasData, localHasData, latestLocalUpdate, latestCloudUpdate, deduplicateTimeline, RESOURCES_UPDATED_EVENT } from "@/lib/sync"
 import { accumulateDailyIncome, type IncomeAccumulation } from "@/lib/daily-income"
 import { claimCombatRewards, reverseCombatRewardInflation, type CombatRewardResult } from "@/lib/combat-rewards"
 import { accumulateEventRewards, type EventRewardResult } from "@/lib/event-rewards"
@@ -40,8 +40,16 @@ function AppContent() {
         } else if (hasLocal && !hasCloud) {
           await pushToCloud()
         } else if (hasCloud && hasLocal) {
-          const hasPortraits = await cloudHasPortraits()
-          if (!hasPortraits) {
+          // Freshness decides direction. If local has edits newer than the
+          // cloud (e.g., a save whose push got interrupted by closing the
+          // browser), push local. Otherwise pull. Never let a stale side
+          // overwrite a fresh one.
+          const [localTs, cloudTs] = await Promise.all([
+            latestLocalUpdate(),
+            latestCloudUpdate(),
+          ])
+          if (localTs > cloudTs) {
+            console.log(`[sync] Local is newer (${localTs} > ${cloudTs}), pushing`)
             await pushToCloud()
           } else {
             await pullFromCloud()

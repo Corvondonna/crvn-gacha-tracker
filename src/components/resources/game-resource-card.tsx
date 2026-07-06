@@ -151,6 +151,7 @@ export function GameResourceCard({ gameId, onSave }: GameResourceCardProps) {
   const [monthlyPassExpiry, setMonthlyPassExpiry] = useState("")
   const [dailyCommissionsActive, setDailyCommissionsActive] = useState(false)
   const [dirty, setDirty] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [history, setHistory] = useState<ResourceSnapshot[]>([])
   const [historyLoaded, setHistoryLoaded] = useState(false)
@@ -235,7 +236,16 @@ export function GameResourceCard({ gameId, onSave }: GameResourceCardProps) {
     // Always create a new snapshot (history tracking)
     await db.resources.add(snapshot as ResourceSnapshot)
 
-    pushToCloud().catch((err) => console.error("Cloud sync failed:", err))
+    // Await the push so "Saved" only shows once the cloud actually has the
+    // data. Closing the browser right after saving is then safe. If the push
+    // fails, local Dexie is newer than cloud, so the next app load pushes it.
+    setSaving(true)
+    try {
+      await pushToCloud()
+    } catch (err) {
+      console.error("Cloud sync failed (local save kept, will push on next load):", err)
+    }
+    setSaving(false)
 
     setDirty(false)
     onSave?.()
@@ -541,19 +551,20 @@ export function GameResourceCard({ gameId, onSave }: GameResourceCardProps) {
         <div style={{ flex: 1 }} />
         <button
           onClick={handleSave}
+          disabled={saving}
           style={{
             padding: "6px 16px",
             borderRadius: 6,
             fontSize: 11,
             fontWeight: 600,
-            border: `1px solid ${dirty ? accentBg(0.4) : accentBg(0.15)}`,
-            background: dirty ? accentBg(0.2) : "transparent",
-            color: dirty ? accent : "hsl(var(--muted-foreground))",
-            cursor: "pointer",
+            border: `1px solid ${dirty || saving ? accentBg(0.4) : accentBg(0.15)}`,
+            background: dirty || saving ? accentBg(0.2) : "transparent",
+            color: dirty || saving ? accent : "hsl(var(--muted-foreground))",
+            cursor: saving ? "wait" : "pointer",
             transition: "all 0.15s",
           }}
         >
-          {dirty ? "Save" : "Saved"}
+          {saving ? "Saving…" : dirty ? "Save" : "Saved"}
         </button>
       </div>
     </div>

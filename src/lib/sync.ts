@@ -492,14 +492,24 @@ export async function localHasData(): Promise<boolean> {
 }
 
 /**
- * Checks if cloud timeline entries have any portrait URLs set.
- * Used to detect if portraits have been synced to Storage yet.
+ * Latest resource snapshot timestamp in local Dexie.
+ * ISO strings compare correctly as plain strings.
  */
-export async function cloudHasPortraits(): Promise<boolean> {
+export async function latestLocalUpdate(): Promise<string> {
+  const all = await db.resources.toArray()
+  let max = ""
+  for (const r of all) {
+    if (r.updatedAt > max) max = r.updatedAt
+  }
+  return max
+}
+
+/** Latest resource snapshot timestamp in the cloud. */
+export async function latestCloudUpdate(): Promise<string> {
   const { data } = await supabase
-    .from("timeline")
-    .select("character_portrait_url")
-    .not("character_portrait_url", "is", null)
+    .from("resources")
+    .select("updated_at")
+    .order("updated_at", { ascending: false })
     .limit(1)
-  return (data?.length ?? 0) > 0
+  return data?.[0]?.updated_at ?? ""
 }
