@@ -52,6 +52,7 @@ function AppContent() {
             console.log(`[sync] Local is newer (${localTs} > ${cloudTs}), pushing`)
             await pushToCloud()
           } else {
+            console.log(`[sync] Cloud is newer or equal (${cloudTs} >= ${localTs}), pulling`)
             await pullFromCloud()
           }
         }

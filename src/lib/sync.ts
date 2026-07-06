@@ -7,16 +7,19 @@ import { db, type ResourceSnapshot, type TimelineEntry, type PullRecord, type Ch
  * All 6 Supabase queries run in parallel for speed.
  */
 export async function pullFromCloud(): Promise<void> {
+  // Safety guard: never let older cloud data overwrite newer local data,
+  // regardless of who called us or why.
+  const [guardLocalTs, guardCloudTs] = await Promise.all([
+    latestLocalUpdate(),
+    latestCloudUpdate(),
+  ])
+  if (guardLocalTs && guardLocalTs > guardCloudTs) {
+    console.warn(`[sync] Pull BLOCKED: local is newer (${guardLocalTs} > ${guardCloudTs || "none"})`)
+    return
+  }
+
   // Fetch all tables in parallel (single network round-trip batch)
-  const [
-    { data: cloudResources },
-    { data: cloudTimeline },
-    { data: cloudPulls },
-    { data: cloudCharacters },
-    { data: cloudCombatClaims },
-    { data: cloudEventClaims },
-    { data: cloudTasks },
-  ] = await Promise.all([
+  const results = await Promise.all([
     supabase.from("resources").select("*"),
     supabase.from("timeline").select("*"),
     supabase.from("pulls").select("*"),
@@ -25,6 +28,28 @@ export async function pullFromCloud(): Promise<void> {
     supabase.from("event_claims").select("*"),
     supabase.from("tasks").select("*"),
   ])
+
+  // Supabase does NOT throw on errors — it returns { error }. If any select
+  // failed (expired session, RLS, network), abort instead of misreading the
+  // cloud as empty and corrupting local state.
+  const tableNames = ["resources", "timeline", "pulls", "characters", "combat_claims", "event_claims", "tasks"]
+  const selectErrors = results
+    .map((r, i) => (r.error ? `${tableNames[i]}: ${r.error.message}` : null))
+    .filter(Boolean)
+  if (selectErrors.length > 0) {
+    throw new Error(`[sync] Pull failed: ${selectErrors.join("; ")}`)
+  }
+
+  const [
+    { data: cloudResources },
+    { data: cloudTimeline },
+    { data: cloudPulls },
+    { data: cloudCharacters },
+    { data: cloudCombatClaims },
+    { data: cloudEventClaims },
+    { data: cloudTasks },
+  ] = results
+  console.log(`[sync] Pull: ${cloudResources?.length ?? 0} resources, ${cloudTimeline?.length ?? 0} timeline, ${cloudPulls?.length ?? 0} pulls`)
 
   // --- Resources ---
   if (cloudResources && cloudResources.length > 0) {
@@ -311,6 +336,17 @@ export async function pushToCloud(): Promise<void> {
 }
 
 async function _pushToCloudImpl(): Promise<void> {
+  // Safety guard: never let older local data overwrite newer cloud data
+  // (e.g., a stale tab firing its post-accumulation push).
+  const [guardLocalTs, guardCloudTs] = await Promise.all([
+    latestLocalUpdate(),
+    latestCloudUpdate(),
+  ])
+  if (guardCloudTs && guardCloudTs > guardLocalTs) {
+    console.warn(`[sync] Push BLOCKED: cloud is newer (${guardCloudTs} > ${guardLocalTs || "none"})`)
+    return
+  }
+
   // Read all local data in parallel
   const [localResources, localTimeline, localPulls, localCharacters, localCombatClaims, localEventClaims, localTasks] = await Promise.all([
     db.resources.toArray(),
@@ -322,16 +358,27 @@ async function _pushToCloudImpl(): Promise<void> {
     db.tasks.toArray(),
   ])
 
+  // Supabase returns { error } instead of throwing — every result must be
+  // checked or failures pass silently and the cloud is left stale/partial.
+  const errors: string[] = []
+  const check = (label: string) => (res: { error: { message: string } | null }) => {
+    if (res.error) errors.push(`${label}: ${res.error.message}`)
+    return res
+  }
+
   // Clear all cloud tables in parallel
   await Promise.all([
-    supabase.from("resources").delete().neq("id", 0),
-    supabase.from("timeline").delete().neq("id", 0),
-    supabase.from("pulls").delete().neq("id", 0),
-    supabase.from("characters").delete().neq("id", 0),
-    supabase.from("combat_claims").delete().neq("id", 0),
-    supabase.from("event_claims").delete().neq("id", 0),
-    supabase.from("tasks").delete().neq("id", 0),
+    supabase.from("resources").delete().neq("id", 0).then(check("delete resources")),
+    supabase.from("timeline").delete().neq("id", 0).then(check("delete timeline")),
+    supabase.from("pulls").delete().neq("id", 0).then(check("delete pulls")),
+    supabase.from("characters").delete().neq("id", 0).then(check("delete characters")),
+    supabase.from("combat_claims").delete().neq("id", 0).then(check("delete combat_claims")),
+    supabase.from("event_claims").delete().neq("id", 0).then(check("delete event_claims")),
+    supabase.from("tasks").delete().neq("id", 0).then(check("delete tasks")),
   ])
+  if (errors.length > 0) {
+    throw new Error(`[sync] Push failed during delete: ${errors.join("; ")}`)
+  }
 
   // --- Timeline (sequential due to portrait uploads) ---
   if (localTimeline.length > 0) {
@@ -344,12 +391,15 @@ async function _pushToCloudImpl(): Promise<void> {
 
       if (t.characterPortrait) {
         portraitPath = portraitStoragePath(t.gameId, t.version, t.phase, t.characterName)
-        await supabase.storage
+        const { error: uploadErr } = await supabase.storage
           .from("portraits")
           .upload(portraitPath, t.characterPortrait, {
             upsert: true,
             contentType: "image/png",
           })
+        // Portrait upload failure shouldn't abort the data push; keep the
+        // path (file may already exist from a previous upload) and log it.
+        if (uploadErr) console.warn(`[sync] Portrait upload failed for ${portraitPath}: ${uploadErr.message}`)
       }
 
       mapped.push({
@@ -372,7 +422,7 @@ async function _pushToCloudImpl(): Promise<void> {
         date_override: t.dateOverride ?? null,
       })
     }
-    await supabase.from("timeline").insert(mapped)
+    check("insert timeline")(await supabase.from("timeline").insert(mapped))
   }
 
   // Insert remaining tables in parallel
@@ -399,7 +449,7 @@ async function _pushToCloudImpl(): Promise<void> {
       char_spark_count: r.charSparkCount ?? 0,
       support_spark_count: r.supportSparkCount ?? 0,
     }))
-    insertOps.push(supabase.from("resources").insert(mapped))
+    insertOps.push(supabase.from("resources").insert(mapped).then(check("insert resources")))
   }
 
   if (localPulls.length > 0) {
@@ -416,7 +466,7 @@ async function _pushToCloudImpl(): Promise<void> {
         is_rate_up: p.isRateUp,
         raw_data: p.rawData ?? {},
       }))
-      insertOps.push(supabase.from("pulls").insert(mapped))
+      insertOps.push(supabase.from("pulls").insert(mapped).then(check("insert pulls")))
     }
   }
 
@@ -431,7 +481,7 @@ async function _pushToCloudImpl(): Promise<void> {
       release_date: c.releaseDate,
       value_tier: c.valueTier,
     }))
-    insertOps.push(supabase.from("characters").insert(mapped))
+    insertOps.push(supabase.from("characters").insert(mapped).then(check("insert characters")))
   }
 
   if (localCombatClaims.length > 0) {
@@ -441,7 +491,7 @@ async function _pushToCloudImpl(): Promise<void> {
       amount: c.amount,
       claimed_at: c.claimedAt,
     }))
-    insertOps.push(supabase.from("combat_claims").insert(mapped))
+    insertOps.push(supabase.from("combat_claims").insert(mapped).then(check("insert combat_claims")))
   }
 
   if (localEventClaims.length > 0) {
@@ -453,7 +503,7 @@ async function _pushToCloudImpl(): Promise<void> {
       amount: e.amount,
       claimed_at: e.claimedAt,
     }))
-    insertOps.push(supabase.from("event_claims").insert(mapped))
+    insertOps.push(supabase.from("event_claims").insert(mapped).then(check("insert event_claims")))
   }
 
   if (localTasks.length > 0) {
@@ -466,19 +516,25 @@ async function _pushToCloudImpl(): Promise<void> {
       sort_order: t.sortOrder,
       scheduled_time: t.scheduledTime ?? null,
     }))
-    insertOps.push(supabase.from("tasks").insert(mapped))
+    insertOps.push(supabase.from("tasks").insert(mapped).then(check("insert tasks")))
   }
 
   await Promise.all(insertOps)
+
+  if (errors.length > 0) {
+    throw new Error(`[sync] Push failed during insert: ${errors.join("; ")}`)
+  }
+  console.log(`[sync] Push OK: ${localResources.length} resources, ${localTimeline.length} timeline, ${localPulls.length} pulls`)
 }
 
 /**
  * Checks if cloud has any data for the current user.
  */
 export async function cloudHasData(): Promise<boolean> {
-  const { count } = await supabase
+  const { count, error } = await supabase
     .from("resources")
     .select("*", { count: "exact", head: true })
+  if (error) throw new Error(`[sync] cloudHasData failed: ${error.message}`)
   return (count ?? 0) > 0
 }
 
@@ -504,12 +560,17 @@ export async function latestLocalUpdate(): Promise<string> {
   return max
 }
 
-/** Latest resource snapshot timestamp in the cloud. */
+/**
+ * Latest resource snapshot timestamp in the cloud.
+ * Throws on query failure — returning "" would make the caller think the
+ * cloud is empty and allow a destructive push over unknown cloud state.
+ */
 export async function latestCloudUpdate(): Promise<string> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("resources")
     .select("updated_at")
     .order("updated_at", { ascending: false })
     .limit(1)
+  if (error) throw new Error(`[sync] latestCloudUpdate failed: ${error.message}`)
   return data?.[0]?.updated_at ?? ""
 }

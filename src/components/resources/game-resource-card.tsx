@@ -152,6 +152,7 @@ export function GameResourceCard({ gameId, onSave }: GameResourceCardProps) {
   const [dailyCommissionsActive, setDailyCommissionsActive] = useState(false)
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [syncFailed, setSyncFailed] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
   const [history, setHistory] = useState<ResourceSnapshot[]>([])
   const [historyLoaded, setHistoryLoaded] = useState(false)
@@ -240,14 +241,15 @@ export function GameResourceCard({ gameId, onSave }: GameResourceCardProps) {
     // data. Closing the browser right after saving is then safe. If the push
     // fails, local Dexie is newer than cloud, so the next app load pushes it.
     setSaving(true)
+    setSyncFailed(false)
     try {
       await pushToCloud()
+      setDirty(false)
     } catch (err) {
-      console.error("Cloud sync failed (local save kept, will push on next load):", err)
+      console.error("Cloud sync failed (local save kept, will retry on next load):", err)
+      setSyncFailed(true)
     }
     setSaving(false)
-
-    setDirty(false)
     onSave?.()
   }
 
@@ -557,14 +559,14 @@ export function GameResourceCard({ gameId, onSave }: GameResourceCardProps) {
             borderRadius: 6,
             fontSize: 11,
             fontWeight: 600,
-            border: `1px solid ${dirty || saving ? accentBg(0.4) : accentBg(0.15)}`,
-            background: dirty || saving ? accentBg(0.2) : "transparent",
-            color: dirty || saving ? accent : "hsl(var(--muted-foreground))",
+            border: `1px solid ${syncFailed ? "hsla(0, 70%, 55%, 0.5)" : dirty || saving ? accentBg(0.4) : accentBg(0.15)}`,
+            background: syncFailed ? "hsla(0, 70%, 55%, 0.15)" : dirty || saving ? accentBg(0.2) : "transparent",
+            color: syncFailed ? "hsl(0, 70%, 60%)" : dirty || saving ? accent : "hsl(var(--muted-foreground))",
             cursor: saving ? "wait" : "pointer",
             transition: "all 0.15s",
           }}
         >
-          {saving ? "Saving…" : dirty ? "Save" : "Saved"}
+          {saving ? "Saving…" : syncFailed ? "Sync failed, retry" : dirty ? "Save" : "Saved"}
         </button>
       </div>
     </div>
