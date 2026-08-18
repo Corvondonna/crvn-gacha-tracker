@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>crvn favicon samples</title>
+<style>
+  body { background: #0d0d0d; color: #ebebeb; font-family: 'JetBrains Mono', monospace; padding: 40px; }
+  h1 { font-size: 16px; letter-spacing: 1px; }
+  .row { display: flex; align-items: center; gap: 24px; margin: 28px 0; }
+  .name { width: 160px; font-size: 12px; color: #888; }
+  .sizes { display: flex; align-items: flex-end; gap: 20px; }
+  .size { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 10px; color: #666; }
+  .tab { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 8px 8px 0 0; font-size: 12px; }
+  .tab.dark { background: #202124; color: #ddd; }
+  .tab.light { background: #f1f3f4; color: #333; }
+  .tab img { width: 16px; height: 16px; }
+</style>
+</head>
+<body>
+<h1>CRVN GACHA TRACKER — FAVICON SAMPLES</h1>
+<div id="rows"></div>
+<script>
+const files = [
+  ["1-hex-node.svg", "1 · Hex Node"],
+  ["2-prism-six.svg", "2 · Six-Game Prism"],
+  ["3-monogram-c.svg", "3 · Terminal C"],
+  ["4-timeline-now.svg", "4 · Timeline Now"],
+  ["5-spark.svg", "5 · 5★ Spark"],
+];
+const rows = document.getElementById("rows");
+for (const [file, name] of files) {
+  const row = document.createElement("div");
+  row.className = "row";
+  row.innerHTML = `
+    <div class="name">${name}</div>
+    <div class="sizes">
+      ${[16, 24, 32, 64].map(s => `
+        <div class="size"><img src="${file}" width="${s}" height="${s}"><span>${s}px</span></div>
+      `).join("")}
+      <div class="size">
+        <div class="tab dark"><img src="${file}"><span>Corvon Gacha Tracker</span></div>
+        <span>dark tab</span>
+      </div>
+      <div class="size">
+        <div class="tab light"><img src="${file}"><span>Corvon Gacha Tracker</span></div>
+        <span>light tab</span>
+      </div>
+    </div>`;
+  rows.appendChild(row);
+}
+</script>
+</body>
+</html>

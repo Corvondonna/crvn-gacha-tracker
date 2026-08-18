@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="g5" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8065e6"/>
+      <stop offset="0.55" stop-color="#e84a9a"/>
+      <stop offset="1" stop-color="#ef8e39"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#0d0d0d"/>
+  <!-- 5-star pull spark: four-point star with curved waists -->
+  <path d="M 32 6
+           C 34.5 22, 42 29.5, 58 32
+           C 42 34.5, 34.5 42, 32 58
+           C 29.5 42, 22 34.5, 6 32
+           C 22 29.5, 29.5 22, 32 6 Z"
+        fill="url(#g5)"/>
+  <circle cx="49" cy="15" r="3.5" fill="#ebebeb" opacity="0.9"/>
+</svg>
