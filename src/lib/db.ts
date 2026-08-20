@@ -36,8 +36,6 @@ export interface TimelineEntry {
   bannerDurationDays?: number
   /** Rate-up percentage for this specific banner (Uma: varies per banner) */
   rateUpPercent?: number
-  /** Current spark counter for this banner target */
-  sparkCount?: number
   /** Support card dupe count (Uma: 0-5 for limit breaking) */
   dupeCount?: number
   /** User-set date override (ISO string). When set, this date replaces the calculated date. */
@@ -224,7 +222,6 @@ db.version(8).stores({
     if (entry.bannerLane === undefined) entry.bannerLane = undefined
     if (entry.bannerDurationDays === undefined) entry.bannerDurationDays = undefined
     if (entry.rateUpPercent === undefined) entry.rateUpPercent = undefined
-    if (entry.sparkCount === undefined) entry.sparkCount = undefined
     if (entry.dupeCount === undefined) entry.dupeCount = undefined
   })
   tx.table("resources").toCollection().modify(entry => {

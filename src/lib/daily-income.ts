@@ -27,33 +27,6 @@ function daysSinceLastUpdate(lastUpdate: Date, now: Date, resetHour: number = 4)
   return Math.max(0, Math.floor(diffMs / (24 * 60 * 60 * 1000)))
 }
 
-/**
- * Calculates daily income for a game based on active income sources.
- */
-function getDailyIncome(gameId: GameId, snapshot: ResourceSnapshot): number {
-  const config = GAMES[gameId]
-  let daily = 0
-
-  if (snapshot.dailyCommissionsActive) {
-    daily += config.dailyCommissionIncome
-  }
-
-  if (snapshot.monthlyPassActive) {
-    // Check if the pass hasn't expired
-    if (snapshot.monthlyPassExpiry) {
-      const expiry = new Date(snapshot.monthlyPassExpiry)
-      if (expiry > new Date()) {
-        daily += config.monthlyPassDaily
-      }
-    } else {
-      // No expiry set, assume active
-      daily += config.monthlyPassDaily
-    }
-  }
-
-  return daily
-}
-
 export interface ProjectedIncome {
   currency: number
   pullItems: number
@@ -170,26 +143,10 @@ export function projectIncomeUntil(
     }
   }
 
-  // Monthly pull item bonus: most games give 5 pullItems on the 1st of each month
-  // NTE also gives 20 Triple Keys (weapon pull items) monthly
-  if (gameId !== "wuwa") {
-    const MONTHLY_PULL_ITEMS = 5
-    const MONTHLY_WEAPON_PULL_ITEMS: Partial<Record<GameId, number>> = {
-      nte: 20,
-    }
-    const startMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-    const current = new Date(startMonth)
-    current.setMonth(current.getMonth() + 1) // start from next 1st
-
-    while (current <= targetDate) {
-      if (current > now) {
-        bonusPullItems += MONTHLY_PULL_ITEMS
-        const weaponMonthly = MONTHLY_WEAPON_PULL_ITEMS[gameId]
-        if (weaponMonthly) bonusWeaponPullItems += weaponMonthly
-      }
-      current.setMonth(current.getMonth() + 1)
-    }
-  }
+  // NOTE: monthly pull item bonuses were previously projected here (+5/month,
+  // +20 NTE Triple Keys) but no accumulator ever credited them, so projections
+  // promised resources that never materialized. Removed — projections are now
+  // slightly conservative rather than optimistic.
 
   return { currency: income, pullItems: bonusPullItems, weaponPullItems: bonusWeaponPullItems }
 }
@@ -228,24 +185,23 @@ export async function accumulateDailyIncome(): Promise<IncomeAccumulation[]> {
 
     if (days <= 0) continue
 
-    const dailyIncome = getDailyIncome(gameId, latest)
-    if (dailyIncome <= 0) continue
-
-    // Check if monthly pass expires partway through the elapsed days
-    let effectiveDays = days
+    // Check if monthly pass expires partway through the elapsed days.
+    // Note: no getDailyIncome() pre-gate here — it treated an expired pass
+    // as zero income, which silently dropped the partial days the pass was
+    // still active during the gap. This inline computation is the single
+    // source of truth.
     let welkinDays = days
     if (latest.monthlyPassActive && latest.monthlyPassExpiry) {
       const expiry = new Date(latest.monthlyPassExpiry)
       if (expiry < now) {
         // Pass expired during the gap. Calculate how many days it was still active.
-        const welkinActiveDays = Math.max(0, daysSinceLastUpdate(lastUpdate, expiry, resetHour))
-        welkinDays = welkinActiveDays
+        welkinDays = Math.max(0, daysSinceLastUpdate(lastUpdate, expiry, resetHour))
       }
     }
     let totalIncome = 0
 
     if (latest.dailyCommissionsActive) {
-      totalIncome += config.dailyCommissionIncome * effectiveDays
+      totalIncome += config.dailyCommissionIncome * days
     }
 
     if (latest.monthlyPassActive) {

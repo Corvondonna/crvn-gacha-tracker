@@ -106,27 +106,24 @@ const ALL_ENTRIES = [
 
 /**
  * Seeds the timeline with empty slots for known patch phases.
- * Only adds entries that don't already exist (won't overwrite user edits).
- * Character names are NOT pre-filled; users register them manually.
+ *
+ * First-run bootstrap ONLY: runs when the timeline table is completely
+ * empty. The previous per-slot backfill re-added any missing
+ * gameId:version:phase on every Timeline mount, which resurrected
+ * entries the user had deliberately deleted.
  */
 export async function seedTimeline(): Promise<number> {
+  const existingCount = await db.timeline.count()
+  if (existingCount > 0) return 0
+
   let added = 0
-
   for (const entry of ALL_ENTRIES) {
-    // Check if entry already exists
-    const existing = await db.timeline
-      .where({ gameId: entry.gameId, version: entry.version })
-      .filter((e) => e.phase === entry.phase)
-      .first()
-
-    if (!existing) {
-      await db.timeline.add({
-        ...entry,
-        startDate: new Date().toISOString(), // placeholder, actual date computed from anchors
-        characterPortrait: null,
-      })
-      added++
-    }
+    await db.timeline.add({
+      ...entry,
+      startDate: new Date().toISOString(), // placeholder, actual date computed from anchors
+      characterPortrait: null,
+    })
+    added++
   }
 
   return added

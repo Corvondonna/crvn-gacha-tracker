@@ -1,5 +1,5 @@
 import { db } from "./db"
-import { type GameId, GAMES } from "./games"
+import { type GameId } from "./games"
 import { COMBAT_MODES, getCombatModeResets } from "@/data/combat-modes"
 
 export interface CombatRewardResult {
@@ -10,9 +10,9 @@ export interface CombatRewardResult {
 
 /**
  * Tracks which combat mode resets have passed and adds rewards to
- * resource snapshots. Games with autoConvertCurrency (GI, HSR, ZZZ)
- * convert reward currency into pull items (÷160). WuWa and NTE keep
- * raw currency (Astrite stays Astrite, Annulith stays Annulith).
+ * resource snapshots as raw currency. No auto-conversion: accumulators
+ * only ever add currency; the manual convert button on the resource
+ * card is the single place currency becomes pull items.
  *
  * Looks back up to 6 months to catch any missed resets.
  * Uses the combatClaims table to avoid double-counting.
@@ -102,70 +102,9 @@ export async function claimCombatRewards(
     const latest = snapshots[snapshots.length - 1]
     if (!latest?.id) continue
 
-    const game = GAMES[gameId]
     const newCurrency = (latest.currency ?? 0) + totalReward
-
-    // GI, HSR, ZZZ: auto-convert currency into pull items (÷160)
-    if (game.autoConvertCurrency) {
-      const extraPulls = Math.floor(newCurrency / game.currencyPerPull)
-      await db.resources.update(latest.id, {
-        currency: newCurrency % game.currencyPerPull,
-        pullItems: (latest.pullItems ?? 0) + extraPulls,
-      })
-    } else {
-      // WuWa, NTE: keep as raw currency (Astrite stays Astrite, Annulith stays Annulith)
-      await db.resources.update(latest.id, { currency: newCurrency })
-    }
+    await db.resources.update(latest.id, { currency: newCurrency })
   }
 
   return results
-}
-
-/**
- * One-time cleanup: the old claimCombatRewards() incorrectly added
- * combat reward currency directly to resource snapshots. This reads
- * all claims from the combatClaims table, sums them per game, and
- * subtracts those amounts from the latest resource snapshot.
- *
- * Uses a localStorage flag to run only once.
- */
-export async function reverseCombatRewardInflation(): Promise<void> {
-  const FLAG = "combat-reward-inflation-fixed"
-  if (localStorage.getItem(FLAG)) return
-
-  const allClaims = await db.combatClaims.toArray()
-  if (allClaims.length === 0) {
-    localStorage.setItem(FLAG, "1")
-    return
-  }
-
-  // Sum claimed amounts per game using combat mode lookup
-  const modeGameMap = new Map<string, GameId>()
-  for (const mode of COMBAT_MODES) {
-    modeGameMap.set(mode.id, mode.gameId)
-  }
-
-  const totalByGame = new Map<GameId, number>()
-  for (const claim of allClaims) {
-    const gameId = modeGameMap.get(claim.modeId)
-    if (!gameId) continue
-    totalByGame.set(gameId, (totalByGame.get(gameId) ?? 0) + claim.amount)
-  }
-
-  // Subtract from each game's latest snapshot
-  for (const [gameId, total] of totalByGame) {
-    const snapshots = await db.resources
-      .where("gameId")
-      .equals(gameId)
-      .sortBy("updatedAt")
-
-    const latest = snapshots[snapshots.length - 1]
-    if (!latest) continue
-
-    await db.resources.update(latest.id!, {
-      currency: Math.max(0, latest.currency - total),
-    })
-  }
-
-  localStorage.setItem(FLAG, "1")
 }

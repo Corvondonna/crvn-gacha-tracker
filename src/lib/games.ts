@@ -11,9 +11,6 @@ export interface GameConfig {
   /** Premium currency purchasable with real money (converts 1:1 to currency) */
   paidCurrency: string
   currencyPerPull: number
-  /** Whether accumulated rewards auto-convert currency into pull items.
-   *  False keeps currency raw (WuWa: Astrite stays Astrite; NTE: Annulith stays Annulith). */
-  autoConvertCurrency: boolean
   baseRate5Star: number
   pity5Star: number
   softPityStart: number
@@ -59,9 +56,7 @@ export const GAMES: Record<GameId, GameConfig> = {
     pullItem: "Intertwined Fate",
     weaponPullItem: null,
     paidCurrency: "Genesis Crystals",
-    currencyPerPull: 160,
-    autoConvertCurrency: true,
-    baseRate5Star: 0.006,
+    currencyPerPull: 160,    baseRate5Star: 0.006,
     pity5Star: 90,
     softPityStart: 74,
     weaponPity: 80,
@@ -93,9 +88,7 @@ export const GAMES: Record<GameId, GameConfig> = {
     pullItem: "Star Rail Special Pass",
     weaponPullItem: null,
     paidCurrency: "Oneiric Shard",
-    currencyPerPull: 160,
-    autoConvertCurrency: true,
-    baseRate5Star: 0.006,
+    currencyPerPull: 160,    baseRate5Star: 0.006,
     pity5Star: 90,
     softPityStart: 74,
     weaponPity: 80,
@@ -127,9 +120,7 @@ export const GAMES: Record<GameId, GameConfig> = {
     pullItem: "Encrypted Master Tape",
     weaponPullItem: null,
     paidCurrency: "Monochromes",
-    currencyPerPull: 160,
-    autoConvertCurrency: true,
-    baseRate5Star: 0.006,
+    currencyPerPull: 160,    baseRate5Star: 0.006,
     pity5Star: 90,
     softPityStart: 74,
     weaponPity: 80,
@@ -161,9 +152,7 @@ export const GAMES: Record<GameId, GameConfig> = {
     pullItem: "Radiant Tide",
     weaponPullItem: "Forging Tide",
     paidCurrency: "Lunites",
-    currencyPerPull: 160,
-    autoConvertCurrency: false,
-    baseRate5Star: 0.008,
+    currencyPerPull: 160,    baseRate5Star: 0.008,
     pity5Star: 80,
     softPityStart: 66,
     weaponPity: 80,
@@ -195,9 +184,7 @@ export const GAMES: Record<GameId, GameConfig> = {
     pullItem: "Solid Dice",
     weaponPullItem: "Triple Key",
     paidCurrency: "Riftcrystal",
-    currencyPerPull: 160,
-    autoConvertCurrency: false,
-    baseRate5Star: 0.0187,
+    currencyPerPull: 160,    baseRate5Star: 0.0187,
     pity5Star: 90,
     softPityStart: 75,
     weaponPity: 90,
@@ -230,9 +217,7 @@ export const GAMES: Record<GameId, GameConfig> = {
     weaponPullItem: null,
     secondaryPullItem: "Support Card Scout Ticket",
     paidCurrency: "Paid Carats",
-    currencyPerPull: 150,
-    autoConvertCurrency: false,
-    baseRate5Star: 0.03,
+    currencyPerPull: 150,    baseRate5Star: 0.03,
     pity5Star: 200,
     softPityStart: 200,
     weaponPity: 200,

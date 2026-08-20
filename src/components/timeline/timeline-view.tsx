@@ -1258,6 +1258,23 @@ export function TimelineView() {
     const newProbMap = new Map<string, ProbabilityResult>()
     const gameProcessed = new Set<GameId>()
 
+    // Build patch starts over now → +12 months for income projection,
+    // independent of the selected view year. The view-scoped patchStartMap
+    // only covers the selected calendar year, which undercounted projected
+    // patch/livestream/combat income when viewing a future year — and made
+    // the same banner show different numbers here vs the Dashboard.
+    const projEnd = new Date(now)
+    projEnd.setMonth(projEnd.getMonth() + 12)
+    const probPatchStarts = new Map<string, Date>()
+    for (const anchor of PATCH_ANCHORS) {
+      const patches = generatePatchSeries(
+        anchor.gameId, anchor.version, anchor.phase1Start, now, projEnd, runtimeOverrides
+      )
+      for (const p of patches) {
+        probPatchStarts.set(`${p.gameId}:${p.version}`, p.phase1Start)
+      }
+    }
+
     // Sort future nodes chronologically so we pick the earliest per game
     const futureNodes = allNodes
       .filter((n) => n.date > now && n.phase !== "livestream")
@@ -1279,7 +1296,7 @@ export function TimelineView() {
 
       // Project daily income from now until the banner date
       const projected = res
-        ? projectIncomeUntil(node.gameId, res, node.date, patchStartMap)
+        ? projectIncomeUntil(node.gameId, res, node.date, probPatchStarts)
         : { currency: 0, pullItems: 0, weaponPullItems: 0 }
 
       // Currency pool (shared between banners): free currency + paid currency + projected income
@@ -1347,7 +1364,7 @@ export function TimelineView() {
     }
 
     setProbMap(newProbMap)
-  }, [allNodes, entryMap, resourceMap])
+  }, [allNodes, entryMap, resourceMap, runtimeOverrides])
 
   const findPatch = useCallback(
     (node: TimelineNode): PatchDates | null => {

@@ -1,4 +1,4 @@
-import type { GameId } from "@/lib/games"
+import { GAMES, type GameId } from "@/lib/games"
 
 export type CombatIcon =
   | "gate" | "theatre" | "flower"       // Genshin
@@ -176,15 +176,17 @@ export function getCombatModeResets(
 ): Date[] {
   const resets: Date[] = []
   const schedule = mode.schedule
+  // Use the game's actual daily reset hour (NTE resets at 5, HoYo/WuWa at 4)
+  const resetHour = GAMES[mode.gameId].dailyResetHour
 
   if (schedule.type === "monthly") {
-    // Generate reset on dayOfMonth at 4:00 AM for each month in range
+    // Generate reset on dayOfMonth at the game's reset hour for each month in range
     const startMonth = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1)
     const endMonth = new Date(rangeEnd.getFullYear(), rangeEnd.getMonth() + 1, 1)
 
     const current = new Date(startMonth)
     while (current < endMonth) {
-      const resetDate = new Date(current.getFullYear(), current.getMonth(), schedule.dayOfMonth, 4, 0, 0)
+      const resetDate = new Date(current.getFullYear(), current.getMonth(), schedule.dayOfMonth, resetHour, 0, 0)
       if (resetDate >= rangeStart && resetDate <= rangeEnd) {
         resets.push(resetDate)
       }
@@ -212,18 +214,18 @@ export function getCombatModeResets(
       currentMs += intervalMs
     }
   } else if (schedule.type === "patchRelative" && patchStarts) {
-    // Generate reset at offsetDays after each patch start, at 4:00 AM
+    // Generate reset at offsetDays after each patch start, at the game's reset hour
     for (const patchDate of patchStarts.values()) {
       const resetDate = new Date(patchDate.getTime() + schedule.offsetDays * 24 * 60 * 60 * 1000)
-      resetDate.setHours(4, 0, 0, 0)
+      resetDate.setHours(resetHour, 0, 0, 0)
       if (resetDate >= rangeStart && resetDate <= rangeEnd) {
         resets.push(resetDate)
       }
     }
   } else if (schedule.type === "weekly") {
-    // Generate every week on the specified day (0=Sun, 1=Mon, ...) at 4:00 AM
+    // Generate every week on the specified day (0=Sun, 1=Mon, ...) at the game's reset hour
     const current = new Date(rangeStart)
-    current.setHours(4, 0, 0, 0)
+    current.setHours(resetHour, 0, 0, 0)
     // Advance to first matching day of week
     const diff = (schedule.dayOfWeek - current.getDay() + 7) % 7
     current.setDate(current.getDate() + diff)

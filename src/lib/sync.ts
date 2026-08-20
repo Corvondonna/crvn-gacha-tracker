@@ -87,7 +87,6 @@ export async function pullFromCloud(): Promise<void> {
         bannerLane: t.banner_lane ?? undefined,
         bannerDurationDays: t.banner_duration_days ?? undefined,
         rateUpPercent: t.rate_up_percent ?? undefined,
-        sparkCount: t.spark_count ?? undefined,
         dupeCount: t.dupe_count ?? undefined,
         dateOverride: t.date_override ?? undefined,
       } as unknown as TimelineEntry)
@@ -327,8 +326,12 @@ export async function deduplicateTimeline(): Promise<number> {
   const toDelete: number[] = []
 
   for (const e of entries) {
-    const key = `${e.gameId}:${e.version}:${e.phase}`
-    // Score entries: prefer entries with user data
+    // Key includes bannerLane so Uma character and support entries
+    // sharing a version are never collapsed into one.
+    const key = `${e.gameId}:${e.version}:${e.phase}:${e.bannerLane ?? ""}`
+    // Score entries: prefer entries with user data. The id is a TRUE
+    // tiebreak (compared only on equal scores) — adding it to the score
+    // let empty-but-newer duplicates beat fully-edited entries.
     let score = 0
     if (e.characterName) score += 10
     if (e.characterPortrait) score += 5
@@ -336,12 +339,11 @@ export async function deduplicateTimeline(): Promise<number> {
     if (e.isPriority) score += 2
     if (e.pullingWeapon) score += 1
     if (e.dateOverride) score += 4
-    score += (e.id ?? 0) // tiebreak: higher ID = more recent insert
 
     const existing = seen.get(key)
     if (!existing) {
       seen.set(key, { id: e.id!, score })
-    } else if (score > existing.score) {
+    } else if (score > existing.score || (score === existing.score && (e.id ?? 0) > existing.id)) {
       toDelete.push(existing.id)
       seen.set(key, { id: e.id!, score })
     } else {
@@ -463,7 +465,7 @@ async function _pushToCloudImpl(): Promise<void> {
         banner_lane: t.bannerLane ?? null,
         banner_duration_days: t.bannerDurationDays ?? null,
         rate_up_percent: t.rateUpPercent ?? null,
-        spark_count: t.sparkCount ?? null,
+        spark_count: null, // field retired; spark lives on resource snapshots
         dupe_count: t.dupeCount ?? null,
         date_override: t.dateOverride ?? null,
       })

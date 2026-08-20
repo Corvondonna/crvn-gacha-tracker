@@ -10,10 +10,11 @@ import { Login } from "@/pages/Login"
 import { useAuth } from "@/lib/auth"
 import { pullFromCloud, pushToCloud, cloudHasData, localHasData, latestLocalUpdate, latestCloudUpdate, deduplicateTimeline, RESOURCES_UPDATED_EVENT } from "@/lib/sync"
 import { accumulateDailyIncome, type IncomeAccumulation } from "@/lib/daily-income"
-import { claimCombatRewards, reverseCombatRewardInflation, type CombatRewardResult } from "@/lib/combat-rewards"
+import { claimCombatRewards, type CombatRewardResult } from "@/lib/combat-rewards"
 import { accumulateEventRewards, type EventRewardResult } from "@/lib/event-rewards"
 import { generatePatchSeries } from "@/lib/timeline"
-import { PATCH_ANCHORS } from "@/data/patch-anchors"
+import { PATCH_ANCHORS, type PatchDateOverride } from "@/data/patch-anchors"
+import { db } from "@/lib/db"
 import { IncomeToast } from "@/components/ui/income-toast"
 import { CombatRewardToast } from "@/components/ui/combat-reward-toast"
 import { EventRewardToast } from "@/components/ui/event-reward-toast"
@@ -71,24 +72,41 @@ function AppContent() {
     if (accumulated.current) return
     accumulated.current = true
 
-    const now = new Date()
-    const lookback = new Date(now.getFullYear(), now.getMonth() - 6, 1)
-    const patchStarts = new Map<string, Date>()
-    for (const anchor of PATCH_ANCHORS) {
-      const patches = generatePatchSeries(
-        anchor.gameId, anchor.version, anchor.phase1Start, lookback, now
-      )
-      for (const p of patches) {
-        patchStarts.set(`${p.gameId}:${p.version}`, p.phase1Start)
-      }
-    }
+    async function runAccumulations() {
+      const now = new Date()
+      const lookback = new Date(now.getFullYear(), now.getMonth() - 6, 1)
 
-    reverseCombatRewardInflation().then(async () => {
-      const [incomeResults, combatResults, eventResults] = await Promise.all([
-        accumulateDailyIncome(),
-        claimCombatRewards(patchStarts),
-        accumulateEventRewards(patchStarts),
-      ])
+      // Respect user-set date overrides from timeline entries, same as
+      // Dashboard and timeline-view — rewards must accrue on the dates
+      // the user actually sees.
+      const overrides = new Map<string, PatchDateOverride>()
+      const entries = await db.timeline.toArray()
+      for (const e of entries) {
+        if (!e.dateOverride) continue
+        const overrideKey = `${e.gameId}:${e.version}`
+        const existing = overrides.get(overrideKey) ?? {}
+        if (e.phase === 1) existing.phase1Start = new Date(e.dateOverride)
+        if (e.phase === 2) existing.phase2Start = new Date(e.dateOverride)
+        overrides.set(overrideKey, existing)
+      }
+
+      const patchStarts = new Map<string, Date>()
+      for (const anchor of PATCH_ANCHORS) {
+        const patches = generatePatchSeries(
+          anchor.gameId, anchor.version, anchor.phase1Start, lookback, now, overrides
+        )
+        for (const p of patches) {
+          patchStarts.set(`${p.gameId}:${p.version}`, p.phase1Start)
+        }
+      }
+
+      // Sequential on purpose: all three accumulators read-modify-write the
+      // same snapshot rows. Running them concurrently loses updates (last
+      // writer wins from a stale read).
+      const incomeResults = await accumulateDailyIncome()
+      const eventResults = await accumulateEventRewards(patchStarts)
+      const combatResults = await claimCombatRewards(patchStarts)
+
       if (incomeResults.length > 0) setIncomeItems(incomeResults)
       if (combatResults.length > 0) setCombatItems(combatResults)
       if (eventResults.length > 0) setEventItems(eventResults)
@@ -100,7 +118,9 @@ function AppContent() {
       // Deduplicate before pushing to prevent stale duplicates from propagating
       await deduplicateTimeline()
       pushToCloud().catch((err) => console.error("Post-accumulation sync failed:", err))
-    })
+    }
+
+    runAccumulations().catch((err) => console.error("Accumulation failed:", err))
   }, [syncDone])
 
   if (!syncDone) {

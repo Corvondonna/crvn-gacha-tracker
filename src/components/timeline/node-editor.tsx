@@ -158,7 +158,6 @@ export function NodeEditor({ gameId, version, phase, date: initialDate, onClose,
   const [existingId, setExistingId] = useState<number | null>(null)
   const [bannerLane, setBannerLane] = useState<"character" | "support">("character")
   const [rateUpPercent, setRateUpPercent] = useState(50)
-  const [sparkCount, setSparkCount] = useState(0)
   const [dupeCount, setDupeCount] = useState(0)
   const [bannerDurationDays, setBannerDurationDays] = useState(14)
   const [portraitPreview, setPortraitPreview] = useState<string | null>(null)
@@ -186,7 +185,6 @@ export function NodeEditor({ gameId, version, phase, date: initialDate, onClose,
         setExistingId(entry.id ?? null)
         setBannerLane(entry.bannerLane ?? "character")
         setRateUpPercent(entry.rateUpPercent ?? 50)
-        setSparkCount(entry.sparkCount ?? 0)
         setDupeCount(entry.dupeCount ?? 0)
         setBannerDurationDays(entry.bannerDurationDays ?? 14)
         if (entry.dateOverride) {
@@ -332,7 +330,6 @@ export function NodeEditor({ gameId, version, phase, date: initialDate, onClose,
       ...(isUma && {
         bannerLane,
         rateUpPercent,
-        sparkCount,
         dupeCount,
         bannerDurationDays,
       }),
@@ -422,7 +419,9 @@ export function NodeEditor({ gameId, version, phase, date: initialDate, onClose,
     const charPullItems = (resource.pullItems ?? 0) + projected.pullItems
     const totalCharPulls = charPullItems + currencyPulls
     const currentPity = resource.currentPity ?? 0
-    const isGuaranteed = resource.isGuaranteed ?? false
+    // Games without a 50/50 (NTE) are always guaranteed — same guard as
+    // Dashboard and timeline-view
+    const isGuaranteed = !config.has5050 || (resource.isGuaranteed ?? false)
 
     if (totalCharPulls <= 0 && currentPity <= 0) return null
 
@@ -444,7 +443,10 @@ export function NodeEditor({ gameId, version, phase, date: initialDate, onClose,
     const combined = computeCombinedProbability(
       gameId,
       currentPity, totalCharPulls, isGuaranteed,
-      weaponPity, totalWeaponPulls, weaponGuaranteed, weaponFP
+      weaponPity, totalWeaponPulls, weaponGuaranteed, weaponFP,
+      // Currency converts into either banner's pull item for
+      // separate-pool games; leftover after char goes to weapon
+      config.weaponPullItem ? currencyPulls : 0
     )
 
     return {
@@ -725,29 +727,11 @@ export function NodeEditor({ gameId, version, phase, date: initialDate, onClose,
                   }}
                 />
               </div>
-              <div style={{ width: 80 }}>
-                <SectionLabel>Spark</SectionLabel>
-                <input
-                  type="number"
-                  value={sparkCount}
-                  onChange={(e) => setSparkCount(Math.max(0, Math.min(game.sparkThreshold, parseInt(e.target.value) || 0)))}
-                  style={{
-                    width: "100%",
-                    padding: "6px 8px",
-                    borderRadius: 3,
-                    fontSize: 12,
-                    fontFamily: MONO,
-                    background: "hsla(0,0%,100%,0.04)",
-                    border: "1px solid hsla(0,0%,100%,0.08)",
-                    outline: "none",
-                    color: "hsl(var(--foreground))",
-                    textAlign: "center",
-                  }}
-                  placeholder={`/ ${game.sparkThreshold}`}
-                />
-              </div>
             </div>
           )}
+          {/* NOTE: per-entry spark count input removed — spark math reads the
+              resource snapshot's charSparkCount/supportSparkCount (Resources
+              page), so this field silently did nothing. */}
 
           {/* Uma: Support card dupe count */}
           {isUma && bannerLane === "support" && (
