@@ -22,14 +22,17 @@ export function EventRewardToast({ items }: { items: EventRewardResult[] }) {
   if (!visible || items.length === 0) return null
 
   // Group by game
-  const byGame = new Map<string, { currency: number; pullItems: number; events: string[] }>()
+  const byGame = new Map<string, { currency: number; pullItems: number; weaponPullItems: number; events: string[] }>()
   for (const item of items) {
-    const existing = byGame.get(item.gameId) ?? { currency: 0, pullItems: 0, events: [] }
+    const existing = byGame.get(item.gameId) ?? { currency: 0, pullItems: 0, weaponPullItems: 0, events: [] }
     existing.currency += item.amount
     existing.pullItems += item.pullItems ?? 0
+    existing.weaponPullItems += item.weaponPullItems ?? 0
     const label = item.eventType === "patch-day"
       ? `${item.version} Patch Day`
-      : `${item.version} Livestream`
+      : item.eventType === "livestream"
+        ? `${item.version} Livestream`
+        : `${item.version} Monthly Shop`
     if (!existing.events.includes(label)) existing.events.push(label)
     byGame.set(item.gameId, existing)
   }
@@ -112,6 +115,21 @@ export function EventRewardToast({ items }: { items: EventRewardResult[] }) {
                   }}
                 >
                   +{data.pullItems} {game.pullItem}
+                </div>
+              )}
+              {data.weaponPullItems > 0 && game.weaponPullItem && (
+                <div
+                  style={{
+                    fontSize: 10,
+                    color: accent,
+                    background: accentBg,
+                    padding: "2px 8px",
+                    borderRadius: 4,
+                    fontWeight: 700,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  +{data.weaponPullItems} {game.weaponPullItem}
                 </div>
               )}
             </div>

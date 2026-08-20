@@ -1,10 +1,10 @@
 import { db } from "./db"
 import { type GameId, GAMES, GAME_IDS } from "./games"
-import { LIVESTREAM_CODES, PATCH_DAY_CURRENCY, WUWA_PATCH_TIDES, PATCH_DAY_HOUR, LIVESTREAM_HOUR } from "@/data/reward-constants"
+import { LIVESTREAM_CODES, PATCH_DAY_CURRENCY, WUWA_PATCH_TIDES, PATCH_DAY_HOUR, LIVESTREAM_HOUR, MONTHLY_SHOP_PULL_ITEMS, MONTHLY_SHOP_WEAPON_PULL_ITEMS } from "@/data/reward-constants"
 
 export interface EventRewardResult {
   gameId: GameId
-  eventType: "patch-day" | "livestream"
+  eventType: "patch-day" | "livestream" | "monthly-shop"
   version: string
   amount: number
   pullItems?: number
@@ -117,6 +117,57 @@ export async function accumulateEventRewards(
         })
         results.push({ gameId, eventType: "livestream", version, amount: LIVESTREAM_CODES })
       }
+    }
+  }
+
+  // --- Monthly shop pull items (credited at reset hour on the 1st) ---
+  // Same gating as patch events: only 1sts that passed AFTER the snapshot's
+  // last update qualify, so enabling this feature never back-credits months
+  // the user already counted manually. eventClaims prevents double-counting.
+  for (const [gameId, snap] of snapshotByGame) {
+    const monthlyPulls = MONTHLY_SHOP_PULL_ITEMS[gameId] ?? 0
+    const monthlyWeaponPulls = MONTHLY_SHOP_WEAPON_PULL_ITEMS[gameId] ?? 0
+    if (monthlyPulls <= 0 && monthlyWeaponPulls <= 0) continue
+
+    const resetHour = GAMES[gameId].dailyResetHour
+
+    // Walk month boundaries from the snapshot's own month up to now.
+    // The `cursor > snap.updatedAt` guard below excludes boundaries the
+    // snapshot already covers (e.g., snapshot saved Aug 20 skips Aug 1
+    // but catches Sep 1).
+    const cursor = new Date(snap.updatedAt.getFullYear(), snap.updatedAt.getMonth(), 1)
+    cursor.setHours(resetHour, 0, 0, 0)
+
+    while (cursor <= now) {
+      if (cursor > snap.updatedAt) {
+        const monthKey = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}`
+        const claimKey = `${gameId}:${monthKey}:monthly-shop`
+        const existing = await db.eventClaims.where("eventKey").equals(claimKey).first()
+
+        if (!existing) {
+          pullItemsByGame.set(gameId, (pullItemsByGame.get(gameId) ?? 0) + monthlyPulls)
+          if (monthlyWeaponPulls > 0) {
+            weaponPullItemsByGame.set(gameId, (weaponPullItemsByGame.get(gameId) ?? 0) + monthlyWeaponPulls)
+          }
+          await db.eventClaims.add({
+            eventKey: claimKey,
+            gameId,
+            eventType: "monthly-shop",
+            version: monthKey,
+            amount: 0,
+            claimedAt: now.toISOString(),
+          })
+          results.push({
+            gameId,
+            eventType: "monthly-shop",
+            version: monthKey,
+            amount: 0,
+            pullItems: monthlyPulls,
+            weaponPullItems: monthlyWeaponPulls || undefined,
+          })
+        }
+      }
+      cursor.setMonth(cursor.getMonth() + 1)
     }
   }
 

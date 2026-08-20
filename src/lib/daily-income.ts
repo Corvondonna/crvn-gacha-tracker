@@ -1,7 +1,7 @@
 import { db, type ResourceSnapshot } from "./db"
 import { GAMES, GAME_IDS, type GameId } from "./games"
 import { COMBAT_MODES, getCombatModeResets } from "@/data/combat-modes"
-import { LIVESTREAM_CODES, PATCH_DAY_CURRENCY, WUWA_PATCH_TIDES, PATCH_DAY_HOUR, LIVESTREAM_HOUR } from "@/data/reward-constants"
+import { LIVESTREAM_CODES, PATCH_DAY_CURRENCY, WUWA_PATCH_TIDES, PATCH_DAY_HOUR, LIVESTREAM_HOUR, MONTHLY_SHOP_PULL_ITEMS, MONTHLY_SHOP_WEAPON_PULL_ITEMS } from "@/data/reward-constants"
 
 /**
  * Calculates the number of full days between two dates,
@@ -138,10 +138,19 @@ export function projectIncomeUntil(
     }
   }
 
-  // NOTE: monthly pull item bonuses were previously projected here (+5/month,
-  // +20 NTE Triple Keys) but no accumulator ever credited them, so projections
-  // promised resources that never materialized. Removed — projections are now
-  // slightly conservative rather than optimistic.
+  // Monthly shop pull items (constants shared with event-rewards accrual,
+  // which credits them on the 1st — projection and reality stay in lockstep)
+  const monthlyPulls = MONTHLY_SHOP_PULL_ITEMS[gameId] ?? 0
+  const monthlyWeaponPulls = MONTHLY_SHOP_WEAPON_PULL_ITEMS[gameId] ?? 0
+  if (monthlyPulls > 0 || monthlyWeaponPulls > 0) {
+    const firstOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+    firstOfMonth.setHours(config.dailyResetHour, 0, 0, 0)
+    while (firstOfMonth <= targetEndOfDay) {
+      bonusPullItems += monthlyPulls
+      bonusWeaponPullItems += monthlyWeaponPulls
+      firstOfMonth.setMonth(firstOfMonth.getMonth() + 1)
+    }
+  }
 
   return { currency: income, pullItems: bonusPullItems, weaponPullItems: bonusWeaponPullItems }
 }

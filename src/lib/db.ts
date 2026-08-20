@@ -107,13 +107,14 @@ export interface TaskItem {
   scheduledTime?: string
 }
 
-/** Tracks which patch day / livestream events have been claimed */
+/** Tracks which patch day / livestream / monthly shop events have been claimed */
 export interface EventRewardClaim {
   id?: number
-  /** Unique key: "gameId:version:eventType" */
+  /** Unique key: "gameId:version:eventType" (monthly-shop uses "gameId:YYYY-MM:monthly-shop") */
   eventKey: string
   gameId: GameId
-  eventType: "patch-day" | "livestream"
+  eventType: "patch-day" | "livestream" | "monthly-shop"
+  /** Patch version, or "YYYY-MM" for monthly-shop claims */
   version: string
   amount: number
   claimedAt: string

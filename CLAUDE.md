@@ -491,6 +491,7 @@ Patch day and livestream rewards auto-accumulate into stored currency on app loa
 
 - **Patch day:** 600 currency at 11:00 AM on patch start (WuWa: 7 Radiant Tide + 7 Forging Tide instead; NTE: 600 Annulith)
 - **Livestream:** 300 currency at 8:00 PM, offset days after patch start (30 for HoYo, 29 for WuWa, 24 for NTE)
+- **Monthly shop:** pull items credited at the game's daily reset hour on the 1st of each month — GI/HSR/ZZZ +5 pull items, NTE +5 Solid Dice +20 Tri-Keys. WuWa's tide shop is per-patch (covered by the patch-day credit), Uma has no ticket shop. Amounts live in `src/data/reward-constants.ts` (`MONTHLY_SHOP_*`); both projection and accrual read them. Claims are gated on the snapshot's `updatedAt` so first-run never back-credits months the user already counted manually.
 
 Income projection (`src/lib/daily-income.ts`) uses `targetEndOfDay` (23:59:59.999) for event reward date comparisons so same-day events are included. Once an event passes `now`, it drops from projection and gets accumulated into the snapshot.
 
