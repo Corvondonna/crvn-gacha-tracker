@@ -429,7 +429,6 @@ export function NodeEditor({ gameId, version, phase, date: initialDate, onClose,
 
     const weaponPity = resource.weaponCurrentPity ?? 0
     const weaponGuaranteed = resource.weaponIsGuaranteed ?? false
-    const weaponFP = 0
     // For separate-pool games (NTE, WuWa), weapon pulls = dedicated items only.
     // Currency is already counted in character pulls, so don't add it again.
     // For shared-pool games, weapon uses the same pool as character.
@@ -443,7 +442,7 @@ export function NodeEditor({ gameId, version, phase, date: initialDate, onClose,
     const combined = computeCombinedProbability(
       gameId,
       currentPity, totalCharPulls, isGuaranteed,
-      weaponPity, totalWeaponPulls, weaponGuaranteed, weaponFP,
+      weaponPity, totalWeaponPulls, weaponGuaranteed,
       // Currency converts into either banner's pull item for
       // separate-pool games; leftover after char goes to weapon
       config.weaponPullItem ? currencyPulls : 0

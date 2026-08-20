@@ -279,7 +279,6 @@ export function Dashboard() {
                 if (isPullingWeapon) {
                   const weaponPity = res.weaponCurrentPity ?? 0
                   const weaponGuaranteed = res.weaponIsGuaranteed ?? false
-                  const weaponFP = 0
                   // For separate-pool games (NTE, WuWa), weapon pulls = dedicated items only.
                   // Currency is already counted in character pulls, so don't add it again.
                   // For shared-pool games, weapon uses the same pool as character.
@@ -293,7 +292,7 @@ export function Dashboard() {
                   prob = computeCombinedProbability(
                     card.gameId,
                     currentPity, totalPulls, isGuaranteed,
-                    weaponPity, totalWeaponPulls, weaponGuaranteed, weaponFP,
+                    weaponPity, totalWeaponPulls, weaponGuaranteed,
                     // Currency converts into either banner's pull item for
                     // separate-pool games; leftover after char goes to weapon
                     game.weaponPullItem ? currencyPulls : 0

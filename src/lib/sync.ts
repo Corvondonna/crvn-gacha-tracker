@@ -221,7 +221,7 @@ async function fetchAllRows(table: string): Promise<any[]> {
  * Every save and accumulation adds a snapshot; without pruning the table
  * grows past the 1000-row pull cap and sync starts corrupting itself.
  */
-export async function pruneResourceHistory(keepPerGame = 30): Promise<number> {
+async function pruneResourceHistory(keepPerGame = 30): Promise<number> {
   const all = await db.resources.toArray()
   const byGame = new Map<string, ResourceSnapshot[]>()
   for (const r of all) {

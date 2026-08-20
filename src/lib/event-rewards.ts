@@ -1,5 +1,6 @@
 import { db } from "./db"
 import { type GameId, GAMES, GAME_IDS } from "./games"
+import { LIVESTREAM_CODES, PATCH_DAY_CURRENCY, WUWA_PATCH_TIDES, PATCH_DAY_HOUR, LIVESTREAM_HOUR } from "@/data/reward-constants"
 
 export interface EventRewardResult {
   gameId: GameId
@@ -9,12 +10,6 @@ export interface EventRewardResult {
   pullItems?: number
   weaponPullItems?: number
 }
-
-const LIVESTREAM_CODES = 300
-const PATCH_DAY_CURRENCY = 600
-const WUWA_PATCH_TIDES = 7
-const PATCH_DAY_HOUR = 11
-const LIVESTREAM_HOUR = 20
 
 /**
  * On app load, checks for patch day and livestream events that have

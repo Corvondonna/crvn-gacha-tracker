@@ -1003,10 +1003,21 @@ export function TimelineView() {
         if (e.gameId === "uma") umaRaw.push(e)
       }
       setEntryMap(map)
+      entryMapRef.current = map
       setUmaEntries(umaRaw)
     }
     loadEntries()
   }, [dataVersion])
+
+  // Revoke portrait object URLs on unmount (they leaked before)
+  const entryMapRef = useRef<EntryMap>(new Map())
+  useEffect(() => {
+    return () => {
+      for (const entry of entryMapRef.current.values()) {
+        if (entry.portraitUrl) URL.revokeObjectURL(entry.portraitUrl)
+      }
+    }
+  }, [])
 
   // Load latest resource snapshot per game
   useEffect(() => {
@@ -1275,9 +1286,12 @@ export function TimelineView() {
       }
     }
 
-    // Sort future nodes chronologically so we pick the earliest per game
+    // Sort future nodes chronologically so we pick the earliest per game.
+    // Start-of-today comparison (same as Dashboard) so a banner releasing
+    // today keeps its probability through the entire day on both screens.
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const futureNodes = allNodes
-      .filter((n) => n.date > now && n.phase !== "livestream")
+      .filter((n) => n.date >= today && n.phase !== "livestream")
       .sort((a, b) => a.date.getTime() - b.date.getTime())
 
     for (const node of futureNodes) {
@@ -1337,7 +1351,6 @@ export function TimelineView() {
         if (entry.pullingWeapon) {
           const weaponPity = res?.weaponCurrentPity ?? 0
           const weaponGuaranteed = res?.weaponIsGuaranteed ?? false
-          const weaponFP = res?.weaponFatePoints ?? 0
           const weaponPullItemCount = config.weaponPullItem
             ? (res?.weaponPullItems ?? 0) + projected.weaponPullItems
             : charPullItems
@@ -1347,7 +1360,7 @@ export function TimelineView() {
           result = computeCombinedProbability(
             node.gameId,
             currentPity, totalCharPulls, isGuaranteed,
-            weaponPity, totalWeaponPulls, weaponGuaranteed, weaponFP,
+            weaponPity, totalWeaponPulls, weaponGuaranteed,
             // Currency converts into either banner's pull item for
             // separate-pool games; leftover after char goes to weapon
             config.weaponPullItem ? currencyPulls : 0

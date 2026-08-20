@@ -1,6 +1,7 @@
 import { db, type ResourceSnapshot } from "./db"
 import { GAMES, GAME_IDS, type GameId } from "./games"
 import { COMBAT_MODES, getCombatModeResets } from "@/data/combat-modes"
+import { LIVESTREAM_CODES, PATCH_DAY_CURRENCY, WUWA_PATCH_TIDES, PATCH_DAY_HOUR, LIVESTREAM_HOUR } from "@/data/reward-constants"
 
 /**
  * Calculates the number of full days between two dates,
@@ -110,14 +111,8 @@ export function projectIncomeUntil(
     }
   }
 
-  // Patch-based fixed income
+  // Patch-based fixed income (constants shared with event-rewards accrual)
   if (patchStarts) {
-    const LIVESTREAM_CODES = 300
-    const PATCH_DAY_CURRENCY = 600 // Genshin, HSR, ZZZ
-    const WUWA_PATCH_TIDES = 7    // WuWa gives 7 Radiant Tide + 7 Forging Tide instead
-    const PATCH_DAY_HOUR = 11     // Patch day currency available at 11:00 AM
-    const LIVESTREAM_HOUR = 20    // Livestream codes available at 8:00 PM
-
     for (const [key, patchStart] of patchStarts) {
       if (!key.startsWith(gameId + ":")) continue
 

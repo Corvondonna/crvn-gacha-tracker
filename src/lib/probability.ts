@@ -74,6 +74,12 @@ function buildRateTable(
 const rateTableCache: Record<string, number[]> = {}
 
 function getCharRateTable(gameId: GameId): number[] {
+  if (gameId === "uma") {
+    // Uma has no pity system — all call sites must route to the spark
+    // model (computeSparkProbability). Falling through here would produce
+    // silently wrong numbers with the default soft-pity increment.
+    console.warn("[probability] Pity rate table requested for uma; use computeSparkProbability instead")
+  }
   const key = `${gameId}:char`
   if (!rateTableCache[key]) {
     const c = GAMES[gameId]
@@ -122,7 +128,7 @@ function probabilityOfAnyHit(
 /**
  * Probability of getting the featured character, accounting for 50/50.
  */
-export function probabilityOfFeaturedCharacter(
+function probabilityOfFeaturedCharacter(
   gameId: GameId,
   currentPity: number,
   availablePulls: number,
@@ -168,19 +174,15 @@ export function probabilityOfFeaturedCharacter(
  * Probability of getting the featured weapon.
  *
  * For WuWa (weaponGuaranteed=true): just need to hit any 5-star weapon.
- * For HoYoverse games: fate points system. Need up to 3 hits worst case.
- *   - Hit 1: 50% correct weapon (if correct, done). 50% wrong (1 fate point).
- *   - Hit 2: 50% correct (if correct, done). 50% wrong (2 fate points).
- *   - Hit 3: guaranteed correct weapon.
- *
- * With existing fate points, fewer hits needed.
+ * All other weapon banners use a simple 50/50 system (same as character):
+ * lose the 50/50 → the next 5-star is guaranteed to be featured.
+ * (The old fate-point system was removed from the tracked games.)
  */
-export function probabilityOfFeaturedWeapon(
+function probabilityOfFeaturedWeapon(
   gameId: GameId,
   currentPity: number,
   availablePulls: number,
-  isGuaranteed: boolean,
-  _fatePoints: number
+  isGuaranteed: boolean
 ): number {
   if (availablePulls <= 0) return 0
 
@@ -243,7 +245,7 @@ export function probabilityOfFeaturedWeapon(
  *   from convertible currency (rather than dedicated char items). Ignored
  *   for shared-pool games.
  */
-export function probabilityOfCharAndWeapon(
+function probabilityOfCharAndWeapon(
   gameId: GameId,
   charPity: number,
   charPulls: number,
@@ -251,7 +253,6 @@ export function probabilityOfCharAndWeapon(
   weaponPity: number,
   weaponPulls: number,
   weaponGuaranteed: boolean,
-  weaponFatePoints: number,
   sharedPulls: number = 0
 ): number {
   const config = GAMES[gameId]
@@ -282,7 +283,7 @@ export function probabilityOfCharAndWeapon(
       const sharedUsed = Math.max(0, k - dedicatedChar)
       const weaponBudget = weaponPulls + (shared - sharedUsed)
       const pWeapon = probabilityOfFeaturedWeapon(
-        gameId, weaponPity, weaponBudget, weaponGuaranteed, weaponFatePoints
+        gameId, weaponPity, weaponBudget, weaponGuaranteed
       )
       combined += pCharExactlyK * pWeapon
     }
@@ -301,7 +302,7 @@ export function probabilityOfCharAndWeapon(
     if (pCharExactlyK <= 1e-10) continue
     const remainingPulls = totalPulls - k
     const pWeapon = probabilityOfFeaturedWeapon(
-      gameId, weaponPity, remainingPulls, weaponGuaranteed, weaponFatePoints
+      gameId, weaponPity, remainingPulls, weaponGuaranteed
     )
     combined += pCharExactlyK * pWeapon
   }
@@ -354,13 +355,12 @@ export function computeCombinedProbability(
   weaponPity: number,
   weaponPulls: number,
   weaponGuaranteed: boolean,
-  weaponFatePoints: number,
   sharedPulls: number = 0
 ): ProbabilityResult {
   return toResult(
     probabilityOfCharAndWeapon(
       gameId, charPity, charPulls, charGuaranteed,
-      weaponPity, weaponPulls, weaponGuaranteed, weaponFatePoints, sharedPulls
+      weaponPity, weaponPulls, weaponGuaranteed, sharedPulls
     ),
     charPulls
   )
@@ -403,7 +403,7 @@ function binomialPMF(n: number, k: number, p: number): number {
  *
  * @param copiesNeeded - total copies wanted (dupeCount + 1). 1 = base copy, 5 = max LB.
  */
-export function probabilityWithSpark(
+function probabilityWithSpark(
   baseRate: number,
   rateUpShare: number,
   availablePulls: number,
@@ -448,14 +448,3 @@ export function computeSparkProbability(
   return toResult(prob, availablePulls)
 }
 
-/**
- * Legacy wrapper - computes character-only probability.
- */
-export function computeProbability(
-  gameId: GameId,
-  currentPity: number,
-  availablePulls: number,
-  isGuaranteed: boolean
-): ProbabilityResult {
-  return computeCharacterProbability(gameId, currentPity, availablePulls, isGuaranteed)
-}

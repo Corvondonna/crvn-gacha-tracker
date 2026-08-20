@@ -458,7 +458,7 @@ Two-tier storage with cloud sync.
 
 ## Combat Mode System
 
-Permanent combat modes per game that reset on fixed schedules and award currency. Rendered as small icons on the timeline below each game's banner row. Combat rewards are projected into probability calculations via `projectIncomeUntil()` but do NOT modify stored resource snapshots.
+Permanent combat modes per game that reset on fixed schedules and award currency. Rendered as small icons on the timeline below each game's banner row. Future combat resets are projected into probability calculations via `projectIncomeUntil()`; passed resets are accumulated into stored resource snapshots as raw currency by `claimCombatRewards()` on app load (never auto-converted to pull items — the manual convert button on the resource card is the single conversion point). Reset times use each game's `dailyResetHour`.
 
 **Data:** `src/data/combat-modes.ts` defines all modes with schedule types:
 - `monthly`: resets on a specific day each month (e.g., Spiral Abyss on the 16th)
@@ -481,7 +481,7 @@ Permanent combat modes per game that reset on fixed schedules and award currency
 | WuWa | Whimpering Wastes | ship | 800 Astrite | 28-day cycle |
 | NTE | Beyond the Rails | rails | 700 Annulith | 14-day cycle |
 
-**Tracking:** `combatClaims` table in Dexie tracks which resets have been seen (for toast notifications). The `claimCombatRewards()` function in `src/lib/combat-rewards.ts` records new claims on app load but does not touch resource snapshots. A one-time `reverseCombatRewardInflation()` cleanup exists to undo an earlier bug that incorrectly added combat rewards to stored currency.
+**Tracking:** `combatClaims` table in Dexie tracks which resets have been claimed (prevents double-counting). The `claimCombatRewards()` function in `src/lib/combat-rewards.ts` runs on app load, records new claims, and adds the reward currency to the latest resource snapshot. The three accumulators (daily income, event rewards, combat rewards) run SEQUENTIALLY on load — they read-modify-write the same snapshot rows, so concurrent execution loses updates. Shared reward constants live in `src/data/reward-constants.ts` so projection (daily-income.ts) and accrual (event-rewards.ts) can never disagree.
 
 **Rendering:** `CombatModeIcon` component in `timeline-view.tsx` renders unique SVG icons per mode. Past nodes at 35% opacity, future at 85%, with "+reward" label below each icon.
 

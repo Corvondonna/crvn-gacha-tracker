@@ -43,19 +43,24 @@ export function calculatePatchDates(
   const hardcoded = PATCH_DATE_OVERRIDES[key]
   const runtime = runtimeOverrides?.get(key)
 
+  // All override dates are COPIED, never returned by reference — a caller
+  // mutating a returned date must not corrupt the shared override tables.
+
   // Phase 1: runtime > hardcoded > calculated
   const phase1IsManual = !!runtime?.phase1Start
-  const actualPhase1 = runtime?.phase1Start ?? hardcoded?.phase1Start ?? phase1Start
+  const overridePhase1 = runtime?.phase1Start ?? hardcoded?.phase1Start
+  const actualPhase1 = overridePhase1 ? new Date(overridePhase1) : phase1Start
 
   // Phase 2: runtime > hardcoded > calculated from phase1
   const phase2IsManual = !!runtime?.phase2Start
-  const phase2Start = runtime?.phase2Start ?? hardcoded?.phase2Start ?? new Date(actualPhase1)
-  if (!runtime?.phase2Start && !hardcoded?.phase2Start) {
+  const overridePhase2 = runtime?.phase2Start ?? hardcoded?.phase2Start
+  const phase2Start = overridePhase2 ? new Date(overridePhase2) : new Date(actualPhase1)
+  if (!overridePhase2) {
     phase2Start.setDate(phase2Start.getDate() + cycle.phase2OffsetDays)
   }
 
   // Livestream: hardcoded > calculated from phase1 (no runtime override for livestream)
-  const livestreamDate = hardcoded?.livestreamDate ?? new Date(actualPhase1)
+  const livestreamDate = hardcoded?.livestreamDate ? new Date(hardcoded.livestreamDate) : new Date(actualPhase1)
   if (!hardcoded?.livestreamDate) {
     livestreamDate.setDate(livestreamDate.getDate() + cycle.livestreamOffsetDays)
   }

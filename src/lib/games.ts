@@ -19,8 +19,6 @@ export interface GameConfig {
   weaponBaseRate: number
   /** Whether weapon banner is 100% guaranteed (no fate points needed) */
   weaponGuaranteed: boolean
-  /** Max fate points before guaranteed (only relevant if weaponGuaranteed is false) */
-  weaponMaxFatePoints: number
   monthlyPass: string
   monthlyPassDaily: number
   dailyCommissionIncome: number
@@ -29,20 +27,15 @@ export interface GameConfig {
   accentVar: string
   patchCycle: {
     durationDays: number
-    patchDay: string
     phase2OffsetDays: number
     livestreamOffsetDays: number
   }
   /** Whether this game uses a fixed patch cycle (false = manual banner dates) */
   hasPatchCycle: boolean
-  /** Sub-lane configuration for timeline (e.g., Uma has character + support lanes) */
-  timelineLanes?: string[]
   /** Secondary pull item for games with two banner types (Uma support card tickets) */
   secondaryPullItem?: string | null
   /** Spark system: guaranteed pick after N pulls on a single banner (0 = no spark) */
   sparkThreshold: number
-  /** Whether spark counter carries across banners (false = resets each banner) */
-  sparkCarries: boolean
   /** Whether the game uses a 50/50 system */
   has5050: boolean
 }
@@ -62,23 +55,17 @@ export const GAMES: Record<GameId, GameConfig> = {
     weaponPity: 80,
     weaponSoftPityStart: 64,
     weaponBaseRate: 0.007,
-    weaponGuaranteed: false,
-    weaponMaxFatePoints: 0,
-    monthlyPass: "Blessing of Welkin Moon",
+    weaponGuaranteed: false,    monthlyPass: "Blessing of Welkin Moon",
     monthlyPassDaily: 90,
     dailyCommissionIncome: 60,
     dailyResetHour: 4,
     accentVar: "--genshin",
     patchCycle: {
-      durationDays: 42,
-      patchDay: "Wednesday",
-      phase2OffsetDays: 20,
+      durationDays: 42,      phase2OffsetDays: 20,
       livestreamOffsetDays: 30,
     },
     hasPatchCycle: true,
-    sparkThreshold: 0,
-    sparkCarries: false,
-    has5050: true,
+    sparkThreshold: 0,    has5050: true,
   },
   hsr: {
     id: "hsr",
@@ -94,23 +81,17 @@ export const GAMES: Record<GameId, GameConfig> = {
     weaponPity: 80,
     weaponSoftPityStart: 64,
     weaponBaseRate: 0.007,
-    weaponGuaranteed: false,
-    weaponMaxFatePoints: 0,
-    monthlyPass: "Express Supply Pass",
+    weaponGuaranteed: false,    monthlyPass: "Express Supply Pass",
     monthlyPassDaily: 90,
     dailyCommissionIncome: 60,
     dailyResetHour: 4,
     accentVar: "--hsr",
     patchCycle: {
-      durationDays: 42,
-      patchDay: "Wednesday",
-      phase2OffsetDays: 20,
+      durationDays: 42,      phase2OffsetDays: 20,
       livestreamOffsetDays: 30,
     },
     hasPatchCycle: true,
-    sparkThreshold: 0,
-    sparkCarries: false,
-    has5050: true,
+    sparkThreshold: 0,    has5050: true,
   },
   zzz: {
     id: "zzz",
@@ -126,23 +107,17 @@ export const GAMES: Record<GameId, GameConfig> = {
     weaponPity: 80,
     weaponSoftPityStart: 64,
     weaponBaseRate: 0.007,
-    weaponGuaranteed: false,
-    weaponMaxFatePoints: 0,
-    monthlyPass: "Inter-Knot Membership",
+    weaponGuaranteed: false,    monthlyPass: "Inter-Knot Membership",
     monthlyPassDaily: 90,
     dailyCommissionIncome: 60,
     dailyResetHour: 4,
     accentVar: "--zzz",
     patchCycle: {
-      durationDays: 42,
-      patchDay: "Wednesday",
-      phase2OffsetDays: 21,
+      durationDays: 42,      phase2OffsetDays: 21,
       livestreamOffsetDays: 30,
     },
     hasPatchCycle: true,
-    sparkThreshold: 0,
-    sparkCarries: false,
-    has5050: true,
+    sparkThreshold: 0,    has5050: true,
   },
   wuwa: {
     id: "wuwa",
@@ -158,23 +133,17 @@ export const GAMES: Record<GameId, GameConfig> = {
     weaponPity: 80,
     weaponSoftPityStart: 56,
     weaponBaseRate: 0.008,
-    weaponGuaranteed: true,
-    weaponMaxFatePoints: 0,
-    monthlyPass: "Lunite Subscription",
+    weaponGuaranteed: true,    monthlyPass: "Lunite Subscription",
     monthlyPassDaily: 90,
     dailyCommissionIncome: 60,
     dailyResetHour: 4,
     accentVar: "--wuwa",
     patchCycle: {
-      durationDays: 42,
-      patchDay: "Thursday",
-      phase2OffsetDays: 21,
+      durationDays: 42,      phase2OffsetDays: 21,
       livestreamOffsetDays: 29,
     },
     hasPatchCycle: true,
-    sparkThreshold: 0,
-    sparkCarries: false,
-    has5050: true,
+    sparkThreshold: 0,    has5050: true,
   },
   nte: {
     id: "nte",
@@ -190,23 +159,17 @@ export const GAMES: Record<GameId, GameConfig> = {
     weaponPity: 90,
     weaponSoftPityStart: 75,
     weaponBaseRate: 0.03,
-    weaponGuaranteed: false,
-    weaponMaxFatePoints: 0,
-    monthlyPass: "Riftcrystal Permit",
+    weaponGuaranteed: false,    monthlyPass: "Riftcrystal Permit",
     monthlyPassDaily: 90,
     dailyCommissionIncome: 60,
     dailyResetHour: 5,
     accentVar: "--nte",
     patchCycle: {
-      durationDays: 35,
-      patchDay: "Wednesday",
-      phase2OffsetDays: 21,
+      durationDays: 35,      phase2OffsetDays: 21,
       livestreamOffsetDays: 24,
     },
     hasPatchCycle: true,
-    sparkThreshold: 0,
-    sparkCarries: false,
-    has5050: false,
+    sparkThreshold: 0,    has5050: false,
   },
   uma: {
     id: "uma",
@@ -223,23 +186,17 @@ export const GAMES: Record<GameId, GameConfig> = {
     weaponPity: 200,
     weaponSoftPityStart: 200,
     weaponBaseRate: 0.03,
-    weaponGuaranteed: false,
-    weaponMaxFatePoints: 0,
-    monthlyPass: "Daily Carat Pack",
+    weaponGuaranteed: false,    monthlyPass: "Daily Carat Pack",
     monthlyPassDaily: 50,
     dailyCommissionIncome: 75,
     dailyResetHour: 23,
     accentVar: "--uma",
     patchCycle: {
-      durationDays: 14,
-      patchDay: "N/A",
-      phase2OffsetDays: 0,
+      durationDays: 14,      phase2OffsetDays: 0,
       livestreamOffsetDays: 0,
     },
     hasPatchCycle: false,
-    sparkThreshold: 200,
-    sparkCarries: false,
-    has5050: false,
+    sparkThreshold: 200,    has5050: false,
   },
 }
 

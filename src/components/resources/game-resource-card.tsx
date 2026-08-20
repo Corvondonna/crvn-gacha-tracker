@@ -125,16 +125,14 @@ function Toggle({
 
 interface GameResourceCardProps {
   gameId: GameId
-  onSave?: () => void
 }
 
-export function GameResourceCard({ gameId, onSave }: GameResourceCardProps) {
+export function GameResourceCard({ gameId }: GameResourceCardProps) {
   const game = GAMES[gameId]
   const accent = `hsl(var(${game.accentVar}))`
   const accentBg = (opacity: number) => `hsla(var(${game.accentVar}) / ${opacity})`
 
   const [loaded, setLoaded] = useState(false)
-  const [, setSnapshotId] = useState<number | null>(null)
   const [currency, setCurrency] = useState(0)
   const [pullItems, setPullItems] = useState(0)
   const [weaponPullItems, setWeaponPullItems] = useState(0)
@@ -165,7 +163,6 @@ export function GameResourceCard({ gameId, onSave }: GameResourceCardProps) {
       .sortBy("updatedAt")
     const latest = snapshots[snapshots.length - 1]
     if (latest) {
-      setSnapshotId(latest.id ?? null)
       setCurrency(latest.currency)
       setPullItems(latest.pullItems)
       setWeaponPullItems(latest.weaponPullItems ?? 0)
@@ -250,7 +247,6 @@ export function GameResourceCard({ gameId, onSave }: GameResourceCardProps) {
       setSyncFailed(true)
     }
     setSaving(false)
-    onSave?.()
   }
 
   if (!loaded) {

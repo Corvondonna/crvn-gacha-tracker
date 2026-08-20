@@ -1,10 +1,7 @@
-import { useState } from "react"
 import { GAME_IDS } from "@/lib/games"
 import { GameResourceCard } from "@/components/resources/game-resource-card"
 
 export function Resources() {
-  const [, setSaveCount] = useState(0)
-
   return (
     <div style={{ padding: 24, height: "100%", overflowY: "auto" }}>
       <h1
@@ -25,11 +22,7 @@ export function Resources() {
         }}
       >
         {GAME_IDS.map((gid) => (
-          <GameResourceCard
-            key={gid}
-            gameId={gid}
-            onSave={() => setSaveCount((c) => c + 1)}
-          />
+          <GameResourceCard key={gid} gameId={gid} />
         ))}
       </div>
     </div>
