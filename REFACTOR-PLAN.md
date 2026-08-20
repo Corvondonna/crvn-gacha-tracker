@@ -1,5 +1,14 @@
 # Refactor Plan — Dead & Conflicting Code Cleanup
 
+> **STATUS: COMPLETE.** All phases implemented across commits `0425737`
+> (Phase 1), `619456c` (Phases 2-4), `f4d3e1b` (monthly shop, supersedes
+> step 3.4 with the accrual-backed version), and the anchor-derived seed
+> rewrite (completes step 1.9). Decisions taken as recommended, except
+> 3.4 where the accrual half was built instead of removing the
+> projection. Deliberately KEPT: the dormant Pull Tracker subtree
+> (Pulls.tsx, parsers, item-name tables), the characters table, and
+> bannerDurationDays — all planned scope, not dead code.
+
 Companion to `DEAD-CODE-AUDIT.md`. Ordered so each phase is independently shippable, with correctness fixes first and cosmetic cleanup last. Each step lists files, the change, and how to verify. Steps marked **[DECISION]** need your call before implementation.
 
 ---

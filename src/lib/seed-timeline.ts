@@ -1,129 +1,57 @@
-import { db, type TimelineEntry } from "./db"
-import type { GameId } from "./games"
-
-interface SeedEntry {
-  gameId: GameId
-  version: string
-  phase: 1 | 2
-  characterName: null
-  valueTier: TimelineEntry["valueTier"]
-  isSpeculation: boolean
-  isPriority: boolean
-  pullStatus: TimelineEntry["pullStatus"]
-  pullingWeapon: boolean
-}
-
-function slot(gameId: GameId, version: string, phase: 1 | 2, isSpeculation = false): SeedEntry {
-  return {
-    gameId,
-    version,
-    phase,
-    characterName: null,
-    valueTier: "limited",
-    isSpeculation,
-    isPriority: false,
-    pullStatus: "none",
-    pullingWeapon: false,
-  }
-}
-
-// Genshin Impact
-const GENSHIN_ENTRIES: SeedEntry[] = [
-  slot("genshin", "6.2", 1),
-  slot("genshin", "6.2", 2),
-  slot("genshin", "6.3", 1),
-  slot("genshin", "6.3", 2),
-  slot("genshin", "6.4", 1),
-  slot("genshin", "6.4", 2),
-  slot("genshin", "6.5", 1),
-  slot("genshin", "6.5", 2),
-  slot("genshin", "6.6", 1, true),
-  slot("genshin", "6.6", 2, true),
-  slot("genshin", "6.7", 1, true),
-]
-
-// Honkai Star Rail
-const HSR_ENTRIES: SeedEntry[] = [
-  slot("hsr", "3.8", 1),
-  slot("hsr", "3.8", 2),
-  slot("hsr", "4.0", 1),
-  slot("hsr", "4.0", 2),
-  slot("hsr", "4.1", 1),
-  slot("hsr", "4.1", 2),
-  slot("hsr", "4.2", 1),
-  slot("hsr", "4.2", 2),
-]
-
-// Zenless Zone Zero
-const ZZZ_ENTRIES: SeedEntry[] = [
-  slot("zzz", "2.5", 1),
-  slot("zzz", "2.5", 2),
-  slot("zzz", "2.6", 1),
-  slot("zzz", "2.6", 2),
-  slot("zzz", "2.7", 1),
-  slot("zzz", "2.7", 2),
-  slot("zzz", "2.8", 1, true),
-  slot("zzz", "2.8", 2, true),
-]
-
-// Wuthering Waves
-const WUWA_ENTRIES: SeedEntry[] = [
-  slot("wuwa", "3.0", 1),
-  slot("wuwa", "3.0", 2),
-  slot("wuwa", "3.1", 1),
-  slot("wuwa", "3.1", 2),
-  slot("wuwa", "3.2", 1),
-  slot("wuwa", "3.2", 2),
-  slot("wuwa", "3.3", 1),
-  slot("wuwa", "3.3", 2),
-  slot("wuwa", "3.4", 1, true),
-  slot("wuwa", "3.4", 2, true),
-]
-
-// Neverness to Everness
-const NTE_ENTRIES: SeedEntry[] = [
-  slot("nte", "1.0", 1),
-  slot("nte", "1.0", 2),
-  slot("nte", "1.1", 1),
-  slot("nte", "1.1", 2),
-  slot("nte", "1.2", 1, true),
-  slot("nte", "1.2", 2, true),
-  slot("nte", "1.3", 1, true),
-  slot("nte", "1.3", 2, true),
-  slot("nte", "1.4", 1, true),
-  slot("nte", "1.4", 2, true),
-  slot("nte", "1.5", 1, true),
-  slot("nte", "1.5", 2, true),
-]
-
-const ALL_ENTRIES = [
-  ...GENSHIN_ENTRIES,
-  ...HSR_ENTRIES,
-  ...ZZZ_ENTRIES,
-  ...WUWA_ENTRIES,
-  ...NTE_ENTRIES,
-]
+import { db } from "./db"
+import { generatePatchSeries } from "./timeline"
+import { PATCH_ANCHORS } from "@/data/patch-anchors"
 
 /**
  * Seeds the timeline with empty slots for known patch phases.
  *
  * First-run bootstrap ONLY: runs when the timeline table is completely
- * empty. The previous per-slot backfill re-added any missing
- * gameId:version:phase on every Timeline mount, which resurrected
- * entries the user had deliberately deleted.
+ * empty (fresh install or recovery), never on normal loads — per-slot
+ * backfilling used to resurrect entries the user had deleted.
+ *
+ * Slots are DERIVED from PATCH_ANCHORS via the patch cycle math instead
+ * of hardcoded version lists, so the seed can never go stale. Each slot
+ * gets its real calculated start date. Patches starting more than one
+ * full cycle in the future are marked speculation. Uma is not seeded
+ * (manual banner dates).
  */
 export async function seedTimeline(): Promise<number> {
   const existingCount = await db.timeline.count()
   if (existingCount > 0) return 0
 
+  const now = new Date()
+  const rangeStart = new Date(now)
+  rangeStart.setMonth(rangeStart.getMonth() - 4)
+  const rangeEnd = new Date(now)
+  rangeEnd.setMonth(rangeEnd.getMonth() + 6)
+
+  // Anything starting beyond one typical cycle from now is unannounced
+  const speculationCutoff = new Date(now.getTime() + 42 * 24 * 60 * 60 * 1000)
+
   let added = 0
-  for (const entry of ALL_ENTRIES) {
-    await db.timeline.add({
-      ...entry,
-      startDate: new Date().toISOString(), // placeholder, actual date computed from anchors
-      characterPortrait: null,
-    })
-    added++
+  for (const anchor of PATCH_ANCHORS) {
+    const patches = generatePatchSeries(
+      anchor.gameId, anchor.version, anchor.phase1Start, rangeStart, rangeEnd
+    )
+    for (const p of patches) {
+      for (const phase of [1, 2] as const) {
+        const startDate = phase === 1 ? p.phase1Start : p.phase2Start
+        await db.timeline.add({
+          gameId: p.gameId,
+          version: p.version,
+          phase,
+          startDate: startDate.toISOString(),
+          characterName: null,
+          characterPortrait: null,
+          valueTier: "limited",
+          isSpeculation: startDate > speculationCutoff,
+          isPriority: false,
+          pullStatus: "none",
+          pullingWeapon: false,
+        })
+        added++
+      }
+    }
   }
 
   return added
