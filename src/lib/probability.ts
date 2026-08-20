@@ -226,13 +226,22 @@ export function probabilityOfFeaturedWeapon(
  *
  * Two modes depending on whether the game has separate pull items per banner:
  *
- * 1. Separate pools (e.g., WuWa has Radiant Tide for chars, Forging Tide for weapons):
- *    Pulls are independent → P(both) = P(char) * P(weapon).
+ * 1. Separate pull items with shared premium currency (WuWa: Radiant/Forging
+ *    Tide, NTE: Solid Dice/Triple Key). Dedicated items are banner-locked, but
+ *    currency converts into either kind. Modeled as char-first allocation:
+ *    the character consumes dedicated char items, then currency; whatever
+ *    currency remains converts into weapon pulls on top of dedicated weapon
+ *    items. P(both) = sum over k of P(char secured at exactly k pulls)
+ *    * P(weapon with weaponItems + leftover currency).
  *
  * 2. Shared pool (Genshin, HSR, ZZZ use the same pull item for both banners):
- *    Every pull spent on character is one fewer for weapon. We model this as
- *    sequential pulling: character banner first, weapon banner with the remainder.
+ *    Every pull spent on character is one fewer for weapon. Same sequential
+ *    model with a single pool:
  *    P(both) = sum over k of P(char secured at exactly k pulls) * P(weapon with N-k pulls)
+ *
+ * @param sharedPulls - for separate-item games: how many of charPulls come
+ *   from convertible currency (rather than dedicated char items). Ignored
+ *   for shared-pool games.
  */
 export function probabilityOfCharAndWeapon(
   gameId: GameId,
@@ -242,29 +251,47 @@ export function probabilityOfCharAndWeapon(
   weaponPity: number,
   weaponPulls: number,
   weaponGuaranteed: boolean,
-  weaponFatePoints: number
+  weaponFatePoints: number,
+  sharedPulls: number = 0
 ): number {
   const config = GAMES[gameId]
 
-  // Separate pull items → independent banners
+  if (charPulls <= 0) {
+    // No character pulls at all: both cannot happen unless char needs 0 pulls,
+    // which the model does not track — return 0.
+    return 0
+  }
+
+  // Build CDF for character: cdf[k] = P(featured char secured in ≤ k pulls)
+  const cdf: number[] = new Array(charPulls + 1)
+  cdf[0] = 0
+  for (let k = 1; k <= charPulls; k++) {
+    cdf[k] = probabilityOfFeaturedCharacter(gameId, charPity, k, charGuaranteed)
+  }
+
+  // Separate dedicated items, shared convertible currency
   if (config.weaponPullItem !== null) {
-    const pChar = probabilityOfFeaturedCharacter(gameId, charPity, charPulls, charGuaranteed)
-    const pWeapon = probabilityOfFeaturedWeapon(
-      gameId, weaponPity, weaponPulls, weaponGuaranteed, weaponFatePoints
-    )
-    return pChar * pWeapon
+    const shared = Math.max(0, Math.min(sharedPulls, charPulls))
+    const dedicatedChar = charPulls - shared
+
+    let combined = 0
+    for (let k = 1; k <= charPulls; k++) {
+      const pCharExactlyK = cdf[k] - cdf[k - 1]
+      if (pCharExactlyK <= 1e-10) continue
+      // Character consumes dedicated items first, then shared currency
+      const sharedUsed = Math.max(0, k - dedicatedChar)
+      const weaponBudget = weaponPulls + (shared - sharedUsed)
+      const pWeapon = probabilityOfFeaturedWeapon(
+        gameId, weaponPity, weaponBudget, weaponGuaranteed, weaponFatePoints
+      )
+      combined += pCharExactlyK * pWeapon
+    }
+    return Math.min(combined, 1.0)
   }
 
   // Shared pool: charPulls and weaponPulls represent the same resources.
   // Use charPulls as the total pool size.
   const totalPulls = charPulls
-
-  // Build CDF for character: cdf[k] = P(featured char secured in ≤ k pulls)
-  const cdf: number[] = new Array(totalPulls + 1)
-  cdf[0] = 0
-  for (let k = 1; k <= totalPulls; k++) {
-    cdf[k] = probabilityOfFeaturedCharacter(gameId, charPity, k, charGuaranteed)
-  }
 
   // Convolution: for each pull count k where character is secured,
   // compute weapon probability with the remaining pulls.
@@ -327,12 +354,13 @@ export function computeCombinedProbability(
   weaponPity: number,
   weaponPulls: number,
   weaponGuaranteed: boolean,
-  weaponFatePoints: number
+  weaponFatePoints: number,
+  sharedPulls: number = 0
 ): ProbabilityResult {
   return toResult(
     probabilityOfCharAndWeapon(
       gameId, charPity, charPulls, charGuaranteed,
-      weaponPity, weaponPulls, weaponGuaranteed, weaponFatePoints
+      weaponPity, weaponPulls, weaponGuaranteed, weaponFatePoints, sharedPulls
     ),
     charPulls
   )

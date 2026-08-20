@@ -1330,7 +1330,10 @@ export function TimelineView() {
           result = computeCombinedProbability(
             node.gameId,
             currentPity, totalCharPulls, isGuaranteed,
-            weaponPity, totalWeaponPulls, weaponGuaranteed, weaponFP
+            weaponPity, totalWeaponPulls, weaponGuaranteed, weaponFP,
+            // Currency converts into either banner's pull item for
+            // separate-pool games; leftover after char goes to weapon
+            config.weaponPullItem ? currencyPulls : 0
           )
           // Display total pulls (char + weapon) for separate-pool games
           if (config.weaponPullItem) {

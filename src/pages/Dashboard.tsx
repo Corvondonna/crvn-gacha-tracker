@@ -293,7 +293,10 @@ export function Dashboard() {
                   prob = computeCombinedProbability(
                     card.gameId,
                     currentPity, totalPulls, isGuaranteed,
-                    weaponPity, totalWeaponPulls, weaponGuaranteed, weaponFP
+                    weaponPity, totalWeaponPulls, weaponGuaranteed, weaponFP,
+                    // Currency converts into either banner's pull item for
+                    // separate-pool games; leftover after char goes to weapon
+                    game.weaponPullItem ? currencyPulls : 0
                   )
                 } else {
                   prob = computeCharacterProbability(card.gameId, currentPity, totalPulls, isGuaranteed)
